@@ -1,0 +1,22 @@
+{
+  "name": "Marciel BarberShop - Admin",
+  "short_name": "Marciel Barber",
+  "description": "Sistema de Gestão e Agendamento Premium para Barbearias",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#D4AF37",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/next.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
