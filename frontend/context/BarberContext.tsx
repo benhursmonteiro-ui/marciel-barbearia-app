@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { setAuthCookie, clearAuthCookie } from '@/lib/auth-cookies';
 
 // Types representing the database tables
 export type UserRole = 'admin' | 'barber' | 'client';
@@ -429,6 +430,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
             setCurrentUser(adminUser);
             localStorage.setItem('mbs_current_user', JSON.stringify(adminUser));
+            setAuthCookie(adminUser);
             return adminUser;
         }
 
@@ -458,6 +460,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         };
         setCurrentUser(user);
         localStorage.setItem('mbs_current_user', JSON.stringify(user));
+        setAuthCookie(user);
         return user;
     };
 
@@ -487,12 +490,14 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(newUser);
         setUsers(prev => [...prev, newUser]);
         localStorage.setItem('mbs_current_user', JSON.stringify(newUser));
+        setAuthCookie(newUser);
         return newUser;
     };
 
     const logout = () => {
         setCurrentUser(null);
         localStorage.removeItem('mbs_current_user');
+        clearAuthCookie();
     };
 
     // Listener para capturar o login social (Google) e sincronizar com o nosso banco
@@ -546,6 +551,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
                 setCurrentUser(finalUser);
                 localStorage.setItem('mbs_current_user', JSON.stringify(finalUser));
+                setAuthCookie(finalUser);
             }
         });
 

@@ -73,7 +73,7 @@ export default function PushNotificationManager() {
     }
   };
 
-  if (!isSupported) return null;
+  if (!isSupported || !currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'barber')) return null;
 
   return (
     <div className="fixed bottom-6 left-6 z-[100] animate-fade-in">
