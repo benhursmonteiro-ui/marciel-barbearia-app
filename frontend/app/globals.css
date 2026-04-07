@@ -12,6 +12,14 @@
 :root {
   --background: #050505;
   --foreground: #ffffff;
+  
+  /* Cores Globais do Sistema (Essenciais para o Layout) */
+  --color-primary-gold: #D4AF37;
+  --color-primary-gold-hover: #b5952f;
+  --color-primary-gold-dim: rgba(212, 175, 55, 0.15);
+  --color-dark-bg: #050505;
+  --color-dark-card: #0F0F0F;
+  --color-dark-border: #1F1F1F;
 }
 
 body {
