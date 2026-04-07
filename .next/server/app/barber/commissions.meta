@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/barber/layout,_N_T_/barber/commissions/layout,_N_T_/barber/commissions/page,_N_T_/barber/commissions"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/barber/commissions/__PAGE__",
+    "/barber/commissions",
+    "/barber",
+    "/_index",
+    "/_head"
+  ]
+}

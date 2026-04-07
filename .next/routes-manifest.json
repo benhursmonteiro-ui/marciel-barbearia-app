@@ -1,0 +1,254 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/agendamentos",
+      "regex": "^/admin/agendamentos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/agendamentos(?:/)?$"
+    },
+    {
+      "page": "/admin/clientes",
+      "regex": "^/admin/clientes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/clientes(?:/)?$"
+    },
+    {
+      "page": "/admin/configuracoes",
+      "regex": "^/admin/configuracoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/configuracoes(?:/)?$"
+    },
+    {
+      "page": "/admin/estoque",
+      "regex": "^/admin/estoque(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/estoque(?:/)?$"
+    },
+    {
+      "page": "/admin/financeiro",
+      "regex": "^/admin/financeiro(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/financeiro(?:/)?$"
+    },
+    {
+      "page": "/admin/horarios",
+      "regex": "^/admin/horarios(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/horarios(?:/)?$"
+    },
+    {
+      "page": "/admin/marketing",
+      "regex": "^/admin/marketing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/marketing(?:/)?$"
+    },
+    {
+      "page": "/admin/minha-agenda",
+      "regex": "^/admin/minha\\-agenda(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/minha\\-agenda(?:/)?$"
+    },
+    {
+      "page": "/admin/notifications",
+      "regex": "^/admin/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/notifications(?:/)?$"
+    },
+    {
+      "page": "/admin/profissionais",
+      "regex": "^/admin/profissionais(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/profissionais(?:/)?$"
+    },
+    {
+      "page": "/admin/relatorios",
+      "regex": "^/admin/relatorios(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/relatorios(?:/)?$"
+    },
+    {
+      "page": "/admin/servicos",
+      "regex": "^/admin/servicos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/servicos(?:/)?$"
+    },
+    {
+      "page": "/barber",
+      "regex": "^/barber(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber(?:/)?$"
+    },
+    {
+      "page": "/barber/commissions",
+      "regex": "^/barber/commissions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/commissions(?:/)?$"
+    },
+    {
+      "page": "/barber/history",
+      "regex": "^/barber/history(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/history(?:/)?$"
+    },
+    {
+      "page": "/barber/horarios",
+      "regex": "^/barber/horarios(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/horarios(?:/)?$"
+    },
+    {
+      "page": "/barber/notifications",
+      "regex": "^/barber/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/notifications(?:/)?$"
+    },
+    {
+      "page": "/barber/profile",
+      "regex": "^/barber/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/profile(?:/)?$"
+    },
+    {
+      "page": "/barber/ratings",
+      "regex": "^/barber/ratings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/ratings(?:/)?$"
+    },
+    {
+      "page": "/barber/reports",
+      "regex": "^/barber/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/reports(?:/)?$"
+    },
+    {
+      "page": "/barber/schedule",
+      "regex": "^/barber/schedule(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/barber/schedule(?:/)?$"
+    },
+    {
+      "page": "/client",
+      "regex": "^/client(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client(?:/)?$"
+    },
+    {
+      "page": "/client/appointments",
+      "regex": "^/client/appointments(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/appointments(?:/)?$"
+    },
+    {
+      "page": "/client/history",
+      "regex": "^/client/history(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/history(?:/)?$"
+    },
+    {
+      "page": "/client/notifications",
+      "regex": "^/client/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/notifications(?:/)?$"
+    },
+    {
+      "page": "/client/products",
+      "regex": "^/client/products(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/products(?:/)?$"
+    },
+    {
+      "page": "/client/profile",
+      "regex": "^/client/profile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/profile(?:/)?$"
+    },
+    {
+      "page": "/client/promotions",
+      "regex": "^/client/promotions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/promotions(?:/)?$"
+    },
+    {
+      "page": "/client/rate",
+      "regex": "^/client/rate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/rate(?:/)?$"
+    },
+    {
+      "page": "/client/schedule",
+      "regex": "^/client/schedule(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/client/schedule(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

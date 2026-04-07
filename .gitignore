@@ -1,9 +1,1 @@
-node_modules/
-frontend/node_modules/
-.next/
-frontend/.next/
-frontend/.next - Copia/
-.env.local
-frontend/.env.local
-*.log
-.DS_Store
+node_modules

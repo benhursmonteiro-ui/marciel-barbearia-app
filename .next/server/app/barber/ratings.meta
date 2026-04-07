@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/barber/layout,_N_T_/barber/ratings/layout,_N_T_/barber/ratings/page,_N_T_/barber/ratings"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/barber/ratings/__PAGE__",
+    "/barber/ratings",
+    "/barber",
+    "/_index",
+    "/_head"
+  ]
+}

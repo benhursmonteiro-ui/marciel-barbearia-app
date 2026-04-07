@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/barber/layout,_N_T_/barber/schedule/layout,_N_T_/barber/schedule/page,_N_T_/barber/schedule"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/barber/schedule/__PAGE__",
+    "/barber/schedule",
+    "/barber",
+    "/_index",
+    "/_head"
+  ]
+}
