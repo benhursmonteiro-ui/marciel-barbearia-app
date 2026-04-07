@@ -5,38 +5,47 @@ export function middleware(request: NextRequest) {
     const sessionCookie = request.cookies.get('mbs_session');
     let user = null;
 
-    if (sessionCookie) {
+    if (sessionCookie?.value) {
         try {
-            user = JSON.parse(decodeURIComponent(sessionCookie.value));
+            // Tenta decodificar o cookie (suporta formatos diferentes de browsers)
+            const decodedValue = decodeURIComponent(sessionCookie.value);
+            user = JSON.parse(decodedValue);
         } catch (e) {
-            console.error('Erro ao analisar cookie de sessão no middleware');
+            console.error('Erro ao ler cookie no middleware, tentando fallback...');
+            try {
+                // Algumas versões do Next já entregam o valor decodificado
+                user = JSON.parse(sessionCookie.value);
+            } catch (err) {
+                user = null;
+            }
         }
     }
 
-    const { pathname } = request.nextUrl;
+    const { pathname } = request.url;
+    const url = new URL(request.url);
 
-    // 1. Se estiver logado e tentar acessar a página de login (/), redireciona para o dashboard correto
-    if (pathname === '/' && user) {
+    // 1. Se estiver logado e for a raiz (/), manda para o dashboard
+    if (url.pathname === '/' && user) {
         const destination = user.role === 'admin' ? '/admin' : user.role === 'barber' ? '/barber' : '/client';
         return NextResponse.redirect(new URL(destination, request.url));
     }
 
-    // 2. Proteção de rotas ADMIN
-    if (pathname.startsWith('/admin')) {
+    // 2. Proteção ADMIN
+    if (url.pathname.startsWith('/admin')) {
         if (!user || user.role !== 'admin') {
             return NextResponse.redirect(new URL('/', request.url));
         }
     }
 
-    // 3. Proteção de rotas BARBER
-    if (pathname.startsWith('/barber')) {
+    // 3. Proteção BARBER
+    if (url.pathname.startsWith('/barber')) {
         if (!user || (user.role !== 'barber' && user.role !== 'admin')) {
             return NextResponse.redirect(new URL('/', request.url));
         }
     }
 
-    // 4. Proteção de rotas CLIENT
-    if (pathname.startsWith('/client')) {
+    // 4. Proteção CLIENTE
+    if (url.pathname.startsWith('/client')) {
         if (!user) {
             return NextResponse.redirect(new URL('/', request.url));
         }
@@ -45,7 +54,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
 }
 
-// Configura em quais caminhos o middleware deve rodar
 export const config = {
     matcher: ['/', '/admin/:path*', '/barber/:path*', '/client/:path*'],
 };

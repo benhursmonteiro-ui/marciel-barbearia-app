@@ -434,12 +434,12 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             return adminUser;
         }
 
-        // Login normal via Supabase para outros usuários
+        // Login via RPC segura (protegida contra RLS)
         const { data, error } = await supabase
-            .from('usuarios')
-            .select('*')
-            .eq('email', email)
-            .eq('senha', password)
+            .rpc('login_user', { 
+                p_email: email, 
+                p_password: password 
+            })
             .single();
 
         if (error || !data) {
