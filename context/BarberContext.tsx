@@ -440,7 +440,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 p_email: email, 
                 p_password: password 
             })
-            .single();
+            .single() as { data: any, error: any };
 
         if (error || !data) {
             console.error("Erro no login:", error);
