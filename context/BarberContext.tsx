@@ -402,29 +402,18 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     const login = async (email: string, password: string) => {
         // Admin fixo — funciona mesmo se o Supabase ainda não tiver o usuário
         if (email === 'marciel_farias@admin.com' && password === '150326') {
-            // Sincroniza e busca o ID real do banco
-            const { data: dbAdmin, error } = await supabase
+            // Tenta buscar o admin no banco (ignorando erros de RLS se houver)
+            const { data: dbAdmin } = await supabase
                 .from('usuarios')
-                .upsert([{
-                    nome: 'Marciel',
-                    email: 'marciel_farias@admin.com',
-                    senha: '150326',
-                    funcao: 'admin'
-                }], { onConflict: 'email' })
-                .select()
+                .select('*')
+                .eq('email', email)
                 .single();
 
-            if (error || !dbAdmin) {
-                console.error("Erro ao sincronizar admin:", error);
-                // Fallback caso o banco falhe, mas o login esteja certo
-                return { id: 'admin-temp', name: 'Marciel', email, role: 'admin' } as User;
-            }
-
             const adminUser: User = {
-                id: dbAdmin.id,
-                name: dbAdmin.nome,
-                email: dbAdmin.email,
-                password: dbAdmin.senha,
+                id: dbAdmin?.id || 'admin-temp-id',
+                name: dbAdmin?.nome || 'Marciel',
+                email: email,
+                password: password,
                 role: 'admin'
             };
 
