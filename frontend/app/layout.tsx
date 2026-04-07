@@ -14,8 +14,6 @@ export const metadata: Metadata = {
 };
 
 import { BarberProvider } from "@/context/BarberContext";
-import PushNotificationManager from "@/components/PushNotificationManager";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,7 +24,6 @@ export default function RootLayout({
       <body className="antialiased">
         <BarberProvider>
           {children}
-          <PushNotificationManager />
         </BarberProvider>
       </body>
     </html>
