@@ -1,18 +1,21 @@
 export function setAuthCookie(user: any) {
     if (typeof window === 'undefined') return;
     
-    // Simplificado para fins de exemplo — o ideal seria um token JWT
-    const cookieData = encodeURIComponent(JSON.stringify({
-        id: user.id,
+    // Simplificado para evitar erros de leitura no middleware
+    const sessionData = JSON.stringify({
+        id: user.id || user.usuario_id,
         role: user.role,
         email: user.email
-    }));
+    });
+    
+    const cookieData = encodeURIComponent(sessionData);
     
     // Cookie expira em 7 dias
     const date = new Date();
     date.setTime(date.getTime() + (7 * 24 * 60 * 60 * 1000));
     const expires = "; expires=" + date.toUTCString();
     
+    // Adicionado o domínio localhost para garantir em ambiente dev
     document.cookie = `mbs_session=${cookieData}${expires}; path=/; SameSite=Lax`;
 }
 

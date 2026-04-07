@@ -81,7 +81,10 @@ export default function LoginPage() {
         if (user) {
           setSuccess(`Acesso permitido. Bem-vindo, ${user.name}!`);
           const destination = user.role === 'admin' ? '/admin' : user.role === 'barber' ? '/barber' : '/client';
-          setTimeout(() => router.push(destination), 1000);
+          // Redirecionamento forte para carregar o middleware com o cookie novo
+          setTimeout(() => {
+            window.location.href = destination;
+          }, 1000);
         } else {
           setError("E-mail ou senha incorretos.");
         }
