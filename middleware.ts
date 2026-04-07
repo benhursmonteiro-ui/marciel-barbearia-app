@@ -21,7 +21,6 @@ export function middleware(request: NextRequest) {
         }
     }
 
-    const { pathname } = request.url;
     const url = new URL(request.url);
 
     // 1. Se estiver logado e for a raiz (/), manda para o dashboard
