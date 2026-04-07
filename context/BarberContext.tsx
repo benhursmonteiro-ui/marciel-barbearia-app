@@ -435,12 +435,14 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         }
 
         // Login via RPC segura (protegida contra RLS)
-        const { data, error } = await supabase
+        const { data: rawData, error } = await supabase
             .rpc('login_user', { 
                 p_email: email, 
                 p_password: password 
             })
             .single();
+
+        const data = rawData as any;
 
         if (error || !data) {
             console.error("Erro no login:", error);
