@@ -41,7 +41,7 @@ export default function SchedulePage() {
 
     // Filter available slots
     const availableSlots = useMemo(() => {
-        if (!selectedDate || !selectedBarber || !shopConfig) return [];
+        if (!selectedDate || !selectedBarber || !shopConfig || !selectedService) return [];
 
         const [y, m, d] = selectedDate.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
@@ -51,9 +51,11 @@ export default function SchedulePage() {
         const dayConfig = shopConfig.workingHours?.[dayName];
         
         let generatedSlots: string[] = [];
+        let shopEndMinutes = 0;
         if (dayConfig && !dayConfig.closed) {
             let [startH, startM] = (dayConfig.start || "08:00").split(':').map(Number);
             let [endH, endM] = (dayConfig.end || "19:00").split(':').map(Number);
+            shopEndMinutes = endH * 60 + endM;
             let curH = startH, curM = startM;
             while (curH < endH || (curH === endH && curM <= endM)) {
                 generatedSlots.push(`${curH.toString().padStart(2, '0')}:${curM.toString().padStart(2, '0')}`);
@@ -80,7 +82,8 @@ export default function SchedulePage() {
         const isToday = selectedDate === todayStr;
         const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
-        return generatedSlots.map(t => {
+        // Pass 1: Base availability (existing appointments and rules)
+        const baseSlots = generatedSlots.map(t => {
             const slotMin = timeToMinutes(t);
             
             // 1. Check if occupied by an appointment (including duration)
@@ -102,10 +105,35 @@ export default function SchedulePage() {
 
             return {
                 time: t,
+                minutes: slotMin,
                 taken: isTaken
             };
         });
-    }, [selectedDate, selectedBarber, appointments, shopConfig, services]);
+
+        // Pass 2: Consider selected service duration
+        const selectedDuration = getDurationMinutes(selectedService.duration || "30 min");
+
+        return baseSlots.map(slot => {
+            if (slot.taken) return { time: slot.time, taken: true };
+
+            const endTime = slot.minutes + selectedDuration;
+
+            // Rule A: Shop closing
+            if (endTime > shopEndMinutes) return { time: slot.time, taken: true };
+
+            // Rule B: Overlap with future appointments/blocks
+            const hasConflict = baseSlots.some(otherSlot => 
+               otherSlot.minutes > slot.minutes && 
+               otherSlot.minutes < endTime && 
+               otherSlot.taken
+            );
+
+            return {
+                time: slot.time,
+                taken: hasConflict
+            };
+        });
+    }, [selectedDate, selectedBarber, appointments, shopConfig, services, selectedService]);
 
     const nextStep = () => setStep(step + 1);
     const prevStep = () => setStep(step - 1);

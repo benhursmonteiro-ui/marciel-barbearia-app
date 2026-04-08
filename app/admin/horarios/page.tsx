@@ -44,19 +44,33 @@ export default function AdminHorarios() {
     const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
     const hours = ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"];
 
+    // Helper to get dates for the current week based on selectedDate
+    const weekDates = React.useMemo(() => {
+        if (!selectedDate) return {};
+        const date = new Date(selectedDate + 'T12:00:00');
+        const day = date.getDay(); // 0 (Sun) to 6 (Sat)
+        // Adjust to Monday (1)
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(new Date(date).setDate(diff));
+        
+        const mapped: Record<string, string> = {};
+        days.forEach((d, i) => {
+            const current = new Date(new Date(monday).setDate(monday.getDate() + i));
+            mapped[d] = current.toISOString().split('T')[0];
+        });
+        return mapped;
+    }, [selectedDate]);
+
     // Helper to check if a slot is "Taken" by an appointment
     const getAppointmentForSlot = (dayName: string, hour: string) => {
-        if (!selectedDate) return null;
+        const targetDate = weekDates[dayName];
+        if (!targetDate) return null;
         
-        const dateObj = new Date(selectedDate + 'T12:00:00');
-        const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-        if (dayNames[dateObj.getDay()] !== dayName) return null;
-
         const slotMin = timeToMinutes(hour);
 
         return appointments.find(apt => {
             if (!(selectedBarberId === 'all' || apt.barberId === selectedBarberId)) return false;
-            if (apt.date !== selectedDate) return false;
+            if (apt.date !== targetDate) return false;
             if (!['agendado', 'confirmado', 'em atendimento'].includes(apt.status.toLowerCase())) return false;
 
             const appMin = timeToMinutes(apt.time);
@@ -254,7 +268,10 @@ export default function AdminHorarios() {
                                                                 }`}
                                                         >
                                                             {appointment ? (
-                                                                <><Icon name="User" className="w-3 h-3" /> {appointment.clientName.split(' ')[0]}</>
+                                                                <div className="flex flex-col items-center">
+                                                                    <Icon name="User" className="w-3 h-3 text-white/40 mb-1" />
+                                                                    <span className="text-[9px] leading-tight text-white/90">{appointment.clientName}</span>
+                                                                </div>
                                                             ) : (isClosed || isOutsideHours) ? (
                                                                 <><Icon name="XCircle" className="w-3 h-3" /> Fechado</>
                                                             ) : isBlocked ? (

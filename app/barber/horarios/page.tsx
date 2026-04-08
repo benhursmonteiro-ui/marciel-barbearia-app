@@ -97,19 +97,33 @@ export default function BarberHorarios() {
         }
     };
 
-    // Helpler to check if a slot is "Taken" by an appointment on the selected date
-    const getAppointmentForSlot = (dayName: string, hour: string) => {
-        if (!selectedDate || !currentBarber) return null;
+    // Helper to get dates for the current week based on selectedDate
+    const weekDates = useMemo(() => {
+        if (!selectedDate) return {};
+        const date = new Date(selectedDate + 'T12:00:00');
+        const day = date.getDay(); // 0 (Sun) to 6 (Sat)
+        // Adjust to Monday (1)
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(new Date(date).setDate(diff));
         
-        const dateObj = new Date(selectedDate + 'T12:00:00');
-        const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-        if (dayNames[dateObj.getDay()] !== dayName) return null;
+        const mapped: Record<string, string> = {};
+        days.forEach((d, i) => {
+            const current = new Date(new Date(monday).setDate(monday.getDate() + i));
+            mapped[d] = current.toISOString().split('T')[0];
+        });
+        return mapped;
+    }, [selectedDate]);
 
+    // Helpler to check if a slot is "Taken" by an appointment on its specific date
+    const getAppointmentForSlot = (dayName: string, hour: string) => {
+        const targetDate = weekDates[dayName];
+        if (!targetDate || !currentBarber) return null;
+        
         const slotMin = timeToMinutes(hour);
 
         return appointments.find(apt => {
             if (apt.barberId !== currentBarber.id) return false;
-            if (apt.date !== selectedDate) return false;
+            if (apt.date !== targetDate) return false;
             if (!['agendado', 'confirmado', 'em atendimento'].includes(apt.status.toLowerCase())) return false;
 
             const appMin = timeToMinutes(apt.time);
@@ -226,7 +240,10 @@ export default function BarberHorarios() {
                                                                  }`}
                                                         >
                                                             {appointment ? (
-                                                                 <><Icon name="User" className="w-3 h-3" /> {appointment.clientName.split(' ')[0]}</>
+                                                                 <div className="flex flex-col items-center">
+                                                                     <Icon name="User" className="w-3 h-3 text-white/40 mb-1" />
+                                                                     <span className="text-[9px] leading-tight text-white/90">{appointment.clientName}</span>
+                                                                 </div>
                                                              ) : (isClosed || isOutsideHours) ? (
                                                                  <><Icon name="XCircle" className="w-3 h-3" /> Fechado</>
                                                              ) : isBlocked ? (
