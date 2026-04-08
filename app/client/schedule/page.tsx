@@ -141,7 +141,26 @@ export default function SchedulePage() {
                 status: 'agendado'
             });
 
-            router.push('/client');
+            // Redirecionamento para WhatsApp de Confirmação
+            const message = `Olá! Gostaria de confirmar meu agendamento:
+📌 *Serviço:* ${selectedService.name}
+👤 *Barbeiro:* ${selectedBarber.name}
+📅 *Data:* ${selectedDate.split('-').reverse().join('/')}
+🕒 *Horário:* ${selectedTime}
+💰 *Valor:* R$ ${selectedService.price.toFixed(2)}
+
+_Confirmado pelo app Marciel Barber Shop_`;
+
+            const waNumber = (shopConfig?.whatsapp || "(89) 9985-0601").replace(/\D/g, '');
+            const waLink = `https://wa.me/55${waNumber}?text=${encodeURIComponent(message)}`;
+            
+            // Tenta abrir o WhatsApp em nova aba
+            window.open(waLink, '_blank');
+
+            // Delay estratégico para garantir que o navegador autorize o popup antes de mudar a página
+            setTimeout(() => {
+                router.push('/client');
+            }, 800);
         } catch (error) {
             console.error(error);
             alert("Erro ao confirmar agendamento. Tente novamente.");
