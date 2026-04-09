@@ -95,7 +95,7 @@ export default function AdminHorarios() {
                 setHolidays(barber.holidays || []);
             }
         }
-    }, [selectedBarberId, shopConfig, barbers]);
+    }, [selectedBarberId]); // Somente recarrega quando mudar a seleção do profissional
 
     const toggleSlot = (day: string, hour: string) => {
         const slot = `${day}-${hour}`;

@@ -224,33 +224,40 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     // Function to load all data from Supabase
     const fetchFromSupabase = async () => {
         try {
+            const safeFetch = async (query: any) => {
+                const { data, error } = await query;
+                if (error) {
+                    console.warn("Fetch warning:", error);
+                    return null;
+                }
+                return data;
+            };
+
             const [
-                { data: dbUsers, error: usersError },
-                { data: dbBarbers },
-                { data: dbServices },
-                { data: dbAppointments },
-                { data: dbPromotions },
-                { data: dbProducts },
-                { data: dbConfig },
-                { data: dbExpenses },
-                { data: dbIncomes },
-                { data: dbNotifications }
+                dbUsers,
+                dbBarbers,
+                dbServices,
+                dbAppointments,
+                dbPromotions,
+                dbProducts,
+                dbConfig,
+                dbExpenses,
+                dbIncomes,
+                dbNotifications
             ] = await Promise.all([
-                supabase.from('usuarios').select('*'),
-                supabase.from('barbeiros').select('*'),
-                supabase.from('servicos').select('*'),
-                supabase.from('agendamentos').select('*'),
-                supabase.from('promocoes').select('*'),
-                supabase.from('estoque').select('*'),
-                supabase.from('configuracoes_loja').select('*').single(),
-                supabase.from('despesas').select('*'),
-                supabase.from('entradas_avulsas').select('*'),
-                supabase.from('notificacoes').select('*').order('created_at', { ascending: false })
+                safeFetch(supabase.from('usuarios').select('*')),
+                safeFetch(supabase.from('barbeiros').select('*')),
+                safeFetch(supabase.from('servicos').select('*')),
+                safeFetch(supabase.from('agendamentos').select('*')),
+                safeFetch(supabase.from('promocoes').select('*')),
+                safeFetch(supabase.from('estoque').select('*')),
+                safeFetch(supabase.from('configuracoes_loja').select('*').single()),
+                safeFetch(supabase.from('despesas').select('*')),
+                safeFetch(supabase.from('entradas_avulsas').select('*')),
+                safeFetch(supabase.from('notificacoes').select('*').order('created_at', { ascending: false }))
             ]);
 
-            let usersToSet = dbUsers || [];
-
-            if (usersToSet) setUsers(usersToSet.map((u: any) => ({
+            if (dbUsers) setUsers(dbUsers.map((u: any) => ({
                 id: u.id,
                 name: u.nome,
                 email: u.email,
@@ -259,6 +266,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 photo: u.foto_url || "",
                 phone: u.telefone || ""
             })));
+            
             if (dbBarbers) setBarbers(dbBarbers.map((b: any) => ({
                 id: b.id,
                 userId: b.usuario_id,
@@ -272,6 +280,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 blockedSlots: b.horarios_bloqueados || [],
                 holidays: b.feriados || []
             })));
+            
             if (dbServices) setServices(dbServices.map((s: any) => ({
                 id: s.id,
                 name: s.nome,
@@ -282,6 +291,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 popular: s.popular,
                 active: s.ativo !== false
             })));
+            
             if (dbAppointments) {
                 const sortedApps = dbAppointments.map((a: any) => ({
                     id: a.id,
@@ -304,6 +314,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 });
                 setAppointments(sortedApps);
             }
+            
             if (dbPromotions) setPromotions(dbPromotions.map((p: any) => ({
                 id: p.id,
                 tag: p.tag,
@@ -315,6 +326,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 textColor: p.texto_cor,
                 active: p.ativo
             })));
+            
             if (dbProducts) setProducts(dbProducts.map((p: any) => ({
                 id: p.id,
                 name: p.nome,
@@ -325,6 +337,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 image: p.imagem,
                 active: p.ativo !== false
             })));
+            
             if (dbConfig) setShopConfig(prev => ({
                 name: dbConfig.nome || prev.name,
                 logo: dbConfig.logo || prev.logo,
@@ -337,6 +350,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 blockedSlots: dbConfig.horarios_bloqueados || prev.blockedSlots || [],
                 holidays: dbConfig.feriados || prev.holidays || []
             }));
+            
             if (dbExpenses) setExpenses(dbExpenses.map((e: any) => ({
                 id: e.id,
                 label: e.label,
@@ -345,6 +359,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 time: e.time,
                 createdAt: e.created_at
             })));
+            
             if (dbIncomes) setIncomes(dbIncomes.map((i: any) => ({
                 id: i.id,
                 label: i.label,
@@ -353,6 +368,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 time: i.time,
                 createdAt: i.created_at
             })));
+            
             if (dbNotifications) setNotifications(dbNotifications.map((n: any) => ({
                 id: n.id,
                 userId: n.usuario_id,
@@ -365,7 +381,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             })));
 
         } catch (error) {
-            console.error("Erro ao carregar dados do Supabase:", error);
+            console.error("Critical error in fetchFromSupabase:", error);
         }
     };
 
@@ -450,6 +466,10 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(user);
         localStorage.setItem('mbs_current_user', JSON.stringify(user));
         setAuthCookie(user);
+        
+        // Sync data for the logged-in user
+        await fetchFromSupabase();
+        
         return user;
     };
 
@@ -480,6 +500,10 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         setUsers(prev => [...prev, newUser]);
         localStorage.setItem('mbs_current_user', JSON.stringify(newUser));
         setAuthCookie(newUser);
+        
+        // Recalcular estado global
+        await fetchFromSupabase();
+        
         return newUser;
     };
 
@@ -584,24 +608,30 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             .single();
 
         if (error) {
-            console.error("Erro ao agendar:", error);
-            return;
+            console.error("Erro ao agendar no Supabase:", error);
+            throw new Error(`Erro ao salvar no banco de dados: ${error.message}`);
+        }
+
+        if (!newApp) {
+            console.error("Supabase inseriu mas não retornou o objeto (possível erro de RLS).");
+            // Se falhou o retorno mas não deu erro, tentamos montar localmente
+            // Isso acontece se o usuário tiver permissão de INSERT mas não de SELECT
         }
 
         const formattedApp: Appointment = {
-            id: newApp.id,
-            clientId: newApp.cliente_id,
-            clientName: newApp.nome_cliente,
-            barberId: newApp.barbeiro_id,
-            barberName: newApp.nome_barbeiro,
-            serviceId: newApp.servico_id,
-            serviceName: newApp.nome_servico,
-            price: newApp.valor,
-            commission: newApp.comissao_gerada,
-            date: newApp.data,
-            time: newApp.horario,
-            status: newApp.status,
-            createdAt: newApp.created_at
+            id: newApp?.id || Math.random().toString(36).substr(2, 9),
+            clientId: newApp?.cliente_id || appData.clientId,
+            clientName: newApp?.nome_cliente || appData.clientName,
+            barberId: newApp?.barbeiro_id || appData.barberId,
+            barberName: newApp?.nome_barbeiro || barber?.name || appData.barberName,
+            serviceId: newApp?.servico_id || appData.serviceId,
+            serviceName: newApp?.nome_servico || service?.name || appData.serviceName,
+            price: newApp?.valor || appData.price,
+            commission: newApp?.comissao_gerada || commissionVal,
+            date: newApp?.data || appData.date,
+            time: newApp?.horario || appData.time,
+            status: newApp?.status || 'agendado',
+            createdAt: newApp?.created_at || new Date().toISOString()
         };
 
         setAppointments(prev => {
@@ -885,7 +915,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
             console.error("Erro ao atualizar barbeiro:", error);
-            return;
+            throw new Error(`Falha ao salvar no banco: ${error.message}`);
         }
 
         setBarbers(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
@@ -959,7 +989,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
             console.error("Erro ao atualizar configuração:", error);
-            return;
+            throw new Error(`Falha ao salvar configurações no banco: ${error.message}`);
         }
 
         setShopConfig(prev => ({ ...prev, ...data }));

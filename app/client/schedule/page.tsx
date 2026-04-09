@@ -189,9 +189,9 @@ _Confirmado pelo app Marciel Barber Shop_`;
             setTimeout(() => {
                 router.push('/client');
             }, 800);
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Erro ao confirmar agendamento. Tente novamente.");
+            alert(error.message || "Erro ao confirmar agendamento. Tente novamente.");
         } finally {
             setIsSaving(false);
         }
