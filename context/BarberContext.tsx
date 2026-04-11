@@ -44,6 +44,7 @@ export interface Service {
 }
 
 export interface ShopConfig {
+    id?: number;
     name: string;
     logo: string;
     address: string;
@@ -197,7 +198,8 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [shopConfig, setShopConfig] = useState<ShopConfig>({
-        name: "Marciel Barber Shop",
+        id: 1,
+        name: "Marciel BarberShop",
         logo: "",
         address: "Rua Castro Alves, 261 - Junco, Picos - PI, - 64600-000",
         phone: "(89) 9985-0601",
@@ -251,7 +253,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 safeFetch(supabase.from('agendamentos').select('*')),
                 safeFetch(supabase.from('promocoes').select('*')),
                 safeFetch(supabase.from('estoque').select('*')),
-                safeFetch(supabase.from('configuracoes_loja').select('*').single()),
+                safeFetch(supabase.from('configuracoes_loja').select('*')),
                 safeFetch(supabase.from('despesas').select('*')),
                 safeFetch(supabase.from('entradas_avulsas').select('*')),
                 safeFetch(supabase.from('notificacoes').select('*').order('created_at', { ascending: false }))
@@ -338,18 +340,22 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 active: p.ativo !== false
             })));
             
-            if (dbConfig) setShopConfig(prev => ({
-                name: dbConfig.nome || prev.name,
-                logo: dbConfig.logo || prev.logo,
-                address: dbConfig.endereco || prev.address,
-                phone: dbConfig.telefone || prev.phone,
-                whatsapp: dbConfig.whatsapp || prev.whatsapp,
-                email: dbConfig.email || dbConfig['e-mail'] || prev.email,
-                workingHours: dbConfig.horarios_funcionamento || prev.workingHours,
-                social: dbConfig.redes_sociais || prev.social,
-                blockedSlots: dbConfig.horarios_bloqueados || prev.blockedSlots || [],
-                holidays: dbConfig.feriados || prev.holidays || []
-            }));
+            if (dbConfig && Array.isArray(dbConfig) && dbConfig.length > 0) {
+                const cfg = dbConfig[0];
+                setShopConfig(prev => ({
+                    id: cfg.id || prev.id,
+                    name: cfg.nome || prev.name,
+                    logo: cfg.logo || prev.logo,
+                    address: cfg.endereco || prev.address,
+                    phone: cfg.telefone || prev.phone,
+                    whatsapp: cfg.whatsapp || prev.whatsapp,
+                    email: cfg.email || cfg['e-mail'] || prev.email,
+                    workingHours: cfg.horarios_funcionamento || prev.workingHours,
+                    social: cfg.redes_sociais || prev.social,
+                    blockedSlots: cfg.horarios_bloqueados || prev.blockedSlots || [],
+                    holidays: cfg.feriados || prev.holidays || []
+                }));
+            }
             
             if (dbExpenses) setExpenses(dbExpenses.map((e: any) => ({
                 id: e.id,
@@ -395,11 +401,12 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             if (savedCurrentUser) setCurrentUser(JSON.parse(savedCurrentUser));
 
             setIsLoaded(true);
-            setIsAuthReady(true); // Now layouts can safely decide to redirect
+            setIsAuthReady(true);
         };
 
         init();
     }, []);
+
 
     const resetToSeed = () => {
         localStorage.removeItem('mbs_users');
@@ -930,7 +937,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         const { error: barberError } = await supabase.from('barbeiros').delete().eq('id', id);
         if (barberError) {
             console.error("Erro ao remover barbeiro:", barberError);
-            return;
+            throw new Error(`Falha ao remover barbeiro: ${barberError.message}`);
         }
 
         const { error: userError } = await supabase.from('usuarios').delete().eq('id', barber.userId);
@@ -956,7 +963,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
             console.error("Erro ao atualizar usuário:", error);
-            return;
+            throw new Error(`Falha ao salvar usuário: ${error.message}`);
         }
 
         setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
@@ -968,7 +975,11 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateShopConfig = async (data: Partial<ShopConfig>) => {
-        const updateData: any = { id: 1 };
+        // Se já temos um ID, usamos ele para garantir atualização do registro correto
+        // Caso contrário, tentamos usar o ID 1 como padrão para o primeiro registro
+        const targetId = shopConfig.id || 1;
+        
+        const updateData: any = { id: targetId };
         if (data.name !== undefined) updateData.nome = data.name;
         if (data.address !== undefined) updateData.endereco = data.address;
         if (data.phone !== undefined) updateData.telefone = data.phone;
@@ -983,16 +994,20 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         if (data.blockedSlots !== undefined) updateData.horarios_bloqueados = data.blockedSlots;
         if (data.holidays !== undefined) updateData.feriados = data.holidays;
 
-        const { error } = await supabase
+        console.log("Salvando configurações da loja:", updateData);
+
+        const { data: result, error } = await supabase
             .from('configuracoes_loja')
-            .upsert(updateData);
+            .upsert(updateData, { onConflict: 'id' })
+            .select();
 
         if (error) {
             console.error("Erro ao atualizar configuração:", error);
             throw new Error(`Falha ao salvar configurações no banco: ${error.message}`);
         }
 
-        setShopConfig(prev => ({ ...prev, ...data }));
+        console.log("Configurações salvas com sucesso no banco:", result);
+        setShopConfig(prev => ({ ...prev, ...data, id: targetId }));
     };
 
     const addPromotion = async (data: Omit<Promotion, 'id'>) => {
