@@ -1230,34 +1230,27 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     };
 
     const resetPassword = async (email: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
-        // Verifica se o e-mail existe na tabela de usuários
-        const { data: existingUser, error: findError } = await supabase
-            .from('usuarios')
-            .select('id, funcao')
-            .eq('email', email.toLowerCase().trim())
-            .single();
+        try {
+            // Chama a função RPC segura que criamos no banco
+            const { data, error } = await supabase.rpc('reset_user_password', {
+                p_email: email.toLowerCase().trim(),
+                p_new_password: newPassword
+            });
 
-        if (findError || !existingUser) {
-            return { success: false, message: 'E-mail não encontrado. Verifique e tente novamente.' };
+            if (error) {
+                console.error('Erro RPC ao redefinir senha:', error);
+                return { success: false, message: 'Erro ao processar solicitação. Tente novamente.' };
+            }
+
+            if (data === true) {
+                return { success: true, message: 'Senha alterada com sucesso! Faça login com a nova senha.' };
+            } else {
+                return { success: false, message: 'E-mail não encontrado ou não permitido.' };
+            }
+        } catch (err) {
+            console.error('Erro inesperado:', err);
+            return { success: false, message: 'Erro inesperado. Tente novamente mais tarde.' };
         }
-
-        // Não permite redefinição de senha de admin
-        if (existingUser.funcao === 'admin') {
-            return { success: false, message: 'Não é possível redefinir a senha deste perfil.' };
-        }
-
-        // Atualiza a senha na tabela usuarios
-        const { error: updateError } = await supabase
-            .from('usuarios')
-            .update({ senha: newPassword })
-            .eq('id', existingUser.id);
-
-        if (updateError) {
-            console.error('Erro ao redefinir senha:', updateError);
-            return { success: false, message: 'Erro ao atualizar a senha. Tente novamente.' };
-        }
-
-        return { success: true, message: 'Senha alterada com sucesso! Faça login com a nova senha.' };
     };
 
     const markNotificationAsRead = async (id: string) => {
