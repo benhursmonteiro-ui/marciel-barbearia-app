@@ -181,6 +181,7 @@ interface BarberContextType {
     updateCartQuantity: (productId: string, delta: number) => void;
     addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
     addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => Promise<void>;
+    resetPassword: (email: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
 }
 
 const BarberContext = createContext<BarberContextType | undefined>(undefined);
@@ -1228,6 +1229,37 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         setIncomes(prev => [...prev, formattedIncome]);
     };
 
+    const resetPassword = async (email: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+        // Verifica se o e-mail existe na tabela de usuários
+        const { data: existingUser, error: findError } = await supabase
+            .from('usuarios')
+            .select('id, funcao')
+            .eq('email', email.toLowerCase().trim())
+            .single();
+
+        if (findError || !existingUser) {
+            return { success: false, message: 'E-mail não encontrado. Verifique e tente novamente.' };
+        }
+
+        // Não permite redefinição de senha de admin
+        if (existingUser.funcao === 'admin') {
+            return { success: false, message: 'Não é possível redefinir a senha deste perfil.' };
+        }
+
+        // Atualiza a senha na tabela usuarios
+        const { error: updateError } = await supabase
+            .from('usuarios')
+            .update({ senha: newPassword })
+            .eq('id', existingUser.id);
+
+        if (updateError) {
+            console.error('Erro ao redefinir senha:', updateError);
+            return { success: false, message: 'Erro ao atualizar a senha. Tente novamente.' };
+        }
+
+        return { success: true, message: 'Senha alterada com sucesso! Faça login com a nova senha.' };
+    };
+
     const markNotificationAsRead = async (id: string) => {
         const { error } = await supabase
             .from('notificacoes')
@@ -1249,7 +1281,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             login, logout, register, addAppointment, updateAppointmentStatus,
             addService, updateService, removeService, addBarber, updateBarber, removeBarber, updateUser, updateShopConfig, resetToSeed,
             addPromotion, updatePromotion, removePromotion, addProduct, updateProduct, removeProduct, loginWithGoogle,
-            addToCart, removeFromCart, clearCart, updateCartQuantity, addExpense, addIncome, markNotificationAsRead
+            addToCart, removeFromCart, clearCart, updateCartQuantity, addExpense, addIncome, markNotificationAsRead, resetPassword
         }}>
             {children}
         </BarberContext.Provider>
