@@ -13,6 +13,37 @@ function Icon({ name, className }: { name: string, className?: string }) {
     return <LucideIcon className={className} />;
 }
 
+// Robust, exception-free date parser that handles both 'YYYY-MM-DD' and 'DD/MM/YYYY'
+function parseDateSafely(dateStr: string) {
+    if (!dateStr || typeof dateStr !== 'string') {
+        return { day: '--', month: '---' };
+    }
+    
+    const cleanStr = dateStr.trim();
+    
+    // Check for YYYY-MM-DD
+    let parts = cleanStr.split('-');
+    if (parts.length === 3) {
+        const day = parts[2];
+        const monthIndex = parseInt(parts[1], 10) - 1;
+        const monthsAbbr = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+        const month = monthsAbbr[monthIndex] || '---';
+        return { day, month };
+    }
+    
+    // Check for DD/MM/YYYY
+    parts = cleanStr.split('/');
+    if (parts.length === 3) {
+        const day = parts[0];
+        const monthIndex = parseInt(parts[1], 10) - 1;
+        const monthsAbbr = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+        const month = monthsAbbr[monthIndex] || '---';
+        return { day, month };
+    }
+    
+    return { day: '--', month: '---' };
+}
+
 export default function AdminClientes() {
     const { users, updateUser, appointments } = useBarber();
     const [searchTerm, setSearchTerm] = useState("");
@@ -89,8 +120,13 @@ export default function AdminClientes() {
                     const clientApps = appointments.filter(a => a.clientId === client.id);
                     const completedApps = clientApps.filter(a => a.status === 'concluido');
                     const lastApp = completedApps
-                        .sort((a, b) => new Date(`${b.date} ${b.time}`).getTime() - new Date(`${a.date} ${a.time}`).getTime())[0];
-                    const lastVisitDate = lastApp ? lastApp.date.split('-').reverse().join('/') : 'Nunca';
+                        .sort((a, b) => {
+                            const dateA = a.date && a.time ? `${a.date} ${a.time}` : (a.date || '');
+                            const dateB = b.date && b.time ? `${b.date} ${b.time}` : (b.date || '');
+                            return new Date(dateB).getTime() - new Date(dateA).getTime();
+                        })[0];
+                    
+                    const lastVisitDate = lastApp && lastApp.date ? lastApp.date.split('-').reverse().join('/') : 'Nunca';
                     const isBlocked = client.blocked;
 
                     return (
@@ -188,7 +224,11 @@ export default function AdminClientes() {
             {isHistoryModalOpen && selectedClientForHistory && (() => {
                 const clientApps = appointments
                     .filter(a => a.clientId === selectedClientForHistory.id)
-                    .sort((a, b) => new Date(`${b.date} ${b.time}`).getTime() - new Date(`${a.date} ${a.time}`).getTime());
+                    .sort((a, b) => {
+                        const dateA = a.date && a.time ? `${a.date} ${a.time}` : (a.date || '');
+                        const dateB = b.date && b.time ? `${b.date} ${b.time}` : (b.date || '');
+                        return new Date(dateB).getTime() - new Date(dateA).getTime();
+                    });
                 
                 const completedApps = clientApps.filter(a => a.status === 'concluido');
                 const totalSpent = completedApps.reduce((acc, app) => acc + app.price, 0);
@@ -221,36 +261,39 @@ export default function AdminClientes() {
 
                             {/* Appointments List */}
                             <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-zinc-800">
-                                {clientApps.length > 0 ? clientApps.map((app) => (
-                                    <div key={app.id} className="bg-black/35 border border-[#1f1f1f] p-5 rounded-2xl flex items-center justify-between gap-4 hover:border-white/5 transition-all">
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-center w-12 border-r border-[#1f1f1f] pr-4 shrink-0">
-                                                <p className="text-lg font-black text-white">{app.date.split('-')[2]}</p>
-                                                <p className="text-[9px] text-gray-500 uppercase font-black">
-                                                    {new Date(app.date).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase()}
-                                                </p>
+                                {clientApps.length > 0 ? clientApps.map((app) => {
+                                    const { day, month } = parseDateSafely(app.date);
+                                    return (
+                                        <div key={app.id} className="bg-black/35 border border-[#1f1f1f] p-5 rounded-2xl flex items-center justify-between gap-4 hover:border-white/5 transition-all">
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-center w-12 border-r border-[#1f1f1f] pr-4 shrink-0">
+                                                    <p className="text-lg font-black text-white">{day}</p>
+                                                    <p className="text-[9px] text-gray-500 uppercase font-black">
+                                                        {month}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm text-gray-100">{app.serviceName}</p>
+                                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">
+                                                        Profissional: <span className="text-[#D4AF37]">{app.barberName}</span>
+                                                    </p>
+                                                    <p className="text-[9px] text-gray-600 mt-1">{app.time}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-bold text-sm text-gray-100">{app.serviceName}</p>
-                                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">
-                                                    Profissional: <span className="text-[#D4AF37]">{app.barberName}</span>
-                                                </p>
-                                                <p className="text-[9px] text-gray-600 mt-1">{app.time}</p>
+                                            <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                                                <span className="text-sm font-black text-[#D4AF37]">R$ {app.price.toFixed(2)}</span>
+                                                <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${
+                                                    app.status === 'concluido' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                    app.status === 'cancelado' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                    app.status === 'agendado' || app.status === 'confirmado' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                                                    'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                }`}>
+                                                    {app.status}
+                                                </span>
                                             </div>
                                         </div>
-                                        <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                                            <span className="text-sm font-black text-[#D4AF37]">R$ {app.price.toFixed(2)}</span>
-                                            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${
-                                                app.status === 'concluido' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                app.status === 'cancelado' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                app.status === 'agendado' || app.status === 'confirmado' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                                                'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                            }`}>
-                                                {app.status}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )) : (
+                                    );
+                                }) : (
                                     <div className="py-12 text-center text-gray-600 italic">
                                         <p>Nenhum agendamento encontrado para este cliente.</p>
                                     </div>
