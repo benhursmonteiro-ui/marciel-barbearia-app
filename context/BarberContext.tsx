@@ -15,6 +15,7 @@ export interface User {
     role: UserRole;
     phone?: string;
     photo?: string;
+    blocked?: boolean;
 }
 
 export interface Barber {
@@ -265,7 +266,10 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 name: u.nome,
                 email: u.email,
                 password: u.senha,
-                role: u.funcao,
+                role: (u.funcao?.toLowerCase() === 'barbeiro' ? 'barber' :
+                    u.funcao?.toLowerCase() === 'cliente' ? 'client' :
+                        u.funcao) as UserRole,
+                blocked: u.bloqueado || false,
                 photo: u.foto_url || "",
                 phone: u.telefone || ""
             })));
@@ -460,6 +464,17 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             return null;
         }
 
+        // Tenta buscar diretamente da tabela usuarios para verificar se está bloqueado!
+        const { data: dbUser } = await supabase
+            .from('usuarios')
+            .select('bloqueado')
+            .eq('id', data.id)
+            .single();
+
+        if (dbUser?.bloqueado) {
+            throw new Error("Sua conta está bloqueada. Entre em contato com o administrador.");
+        }
+
         const user: User = {
             id: data.id,
             name: data.nome,
@@ -468,9 +483,11 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             role: (data.funcao?.toLowerCase() === 'barbeiro' ? 'barber' :
                 data.funcao?.toLowerCase() === 'cliente' ? 'client' :
                     data.funcao) as UserRole,
+            blocked: dbUser?.bloqueado || false,
             photo: data.foto_url || "",
             phone: data.telefone || ""
         };
+
         setCurrentUser(user);
         localStorage.setItem('mbs_current_user', JSON.stringify(user));
         setAuthCookie(user);
@@ -956,6 +973,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         if (data.role !== undefined) updateData.funcao = data.role;
         if (data.phone !== undefined) updateData.telefone = data.phone;
         if (data.photo !== undefined) updateData.foto_url = data.photo;
+        if (data.blocked !== undefined) updateData.bloqueado = data.blocked;
 
         const { error } = await supabase
             .from('usuarios')

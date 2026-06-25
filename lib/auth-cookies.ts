@@ -5,7 +5,8 @@ export function setAuthCookie(user: any) {
     const cookieData = encodeURIComponent(JSON.stringify({
         id: user.id,
         role: user.role,
-        email: user.email
+        email: user.email,
+        blocked: user.blocked || false
     }));
     
     // Cookie expira em 7 dias

@@ -23,10 +23,17 @@ export function middleware(request: NextRequest) {
 
     const url = new URL(request.url);
 
-    // 1. Se estiver logado e for a raiz (/), manda para o dashboard
-    if (url.pathname === '/' && user) {
+    // 1. Se estiver logado e for a raiz (/), manda para o dashboard (se não estiver bloqueado)
+    if (url.pathname === '/' && user && !user.blocked) {
         const destination = user.role === 'admin' ? '/admin' : user.role === 'barber' ? '/barber' : '/client';
         return NextResponse.redirect(new URL(destination, request.url));
+    }
+
+    // Se o usuário estiver bloqueado, não permite acessar nenhuma rota interna
+    if (user && user.blocked) {
+        if (url.pathname !== '/') {
+            return NextResponse.redirect(new URL('/', request.url));
+        }
     }
 
     // 2. Proteção ADMIN
@@ -45,7 +52,7 @@ export function middleware(request: NextRequest) {
 
     // 4. Proteção CLIENTE
     if (url.pathname.startsWith('/client')) {
-        if (!user) {
+        if (!user || user.role !== 'client') {
             return NextResponse.redirect(new URL('/', request.url));
         }
     }
