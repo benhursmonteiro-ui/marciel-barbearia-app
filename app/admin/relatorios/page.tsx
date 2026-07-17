@@ -31,12 +31,22 @@ export default function AdminRelatorios() {
 
     // Simple monthly data logic (current year)
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
     const monthsToShow = months.slice(0, currentMonthIndex + 1);
 
-    // We'll put the real revenue in the current month slot
-    const chartData = monthsToShow.map((m, i) => i === currentMonthIndex ? totalRevenue : 0);
-    const maxVal = totalRevenue > 0 ? totalRevenue : 1;
+    const monthlyRevenue = new Array(12).fill(0);
+    finishedApps.forEach((app: Appointment) => {
+        if (!app.date) return;
+        const [y, m] = app.date.split('-');
+        if (parseInt(y) === currentYear) {
+            monthlyRevenue[parseInt(m) - 1] += app.price;
+        }
+    });
+
+    const chartData = monthsToShow.map((m, i) => monthlyRevenue[i]);
+    const maxRevenue = Math.max(...chartData, 0);
+    const maxVal = maxRevenue > 0 ? maxRevenue : 1;
 
     // Real rank of professionals (only show those with revenue or if virgin, show empty list)
     const barberRank = barbers

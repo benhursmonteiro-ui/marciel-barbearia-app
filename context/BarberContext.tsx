@@ -412,6 +412,26 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         init();
     }, []);
 
+    // Realtime Subscriptions
+    useEffect(() => {
+        const agendamentosChannel = supabase.channel('public:agendamentos')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, () => {
+                fetchFromSupabase();
+            })
+            .subscribe();
+
+        const notificacoesChannel = supabase.channel('public:notificacoes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacoes' }, () => {
+                fetchFromSupabase();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(agendamentosChannel);
+            supabase.removeChannel(notificacoesChannel);
+        };
+    }, []);
+
 
     const resetToSeed = () => {
         localStorage.removeItem('mbs_users');

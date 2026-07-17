@@ -18,9 +18,15 @@ function Icon({ name, className }: { name: string, className?: string }) {
 export default function AdminFinanceiro() {
     const { appointments, barbers, expenses, incomes, addExpense: ctxAddExpense, addIncome: ctxAddIncome } = useBarber();
 
+    // Helper to get local date string YYYY-MM-DD
+    const getLocalDateString = () => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    };
+
     // States
     const [activeTab, setActiveTab] = useState<'overview' | 'config'>('overview');
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(getLocalDateString());
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
 

@@ -182,13 +182,8 @@ _Confirmado pelo app Marciel Barber Shop_`;
             const waNumber = (shopConfig?.whatsapp || "(89) 9985-0601").replace(/\D/g, '');
             const waLink = `https://wa.me/55${waNumber}?text=${encodeURIComponent(message)}`;
             
-            // Tenta abrir o WhatsApp em nova aba
-            window.open(waLink, '_blank');
-
-            // Delay estratégico para garantir que o navegador autorize o popup antes de mudar a página
-            setTimeout(() => {
-                router.push('/client');
-            }, 800);
+            // Redireciona o cliente para o WhatsApp na mesma janela para evitar bloqueios de pop-up
+            window.location.href = waLink;
         } catch (error: any) {
             console.error(error);
             alert(error.message || "Erro ao confirmar agendamento. Tente novamente.");
