@@ -25,7 +25,7 @@ export default function BarberSchedule() {
     // Get current barber's ID
     const barberProfile = barbers.find(b => b.userId === currentUser?.id);
 
-    const statusOptions = ["TODOS", "AGENDADO", "CONFIRMADO", "CONCLUIDO", "CANCELADO"];
+    const statusOptions = ["TODOS", "AGENDADO", "CONFIRMADO", "EM ATENDIMENTO", "CONCLUIDO", "CANCELADO"];
 
     // Filter appointments for THIS barber and status/date
     const filteredAppointments = appointments.filter(app => {
@@ -36,7 +36,7 @@ export default function BarberSchedule() {
             ? (statusUpper !== "CONCLUIDO" && statusUpper !== "CANCELADO") 
             : (statusUpper === statusFilter);
             
-        const matchesDate = statusFilter === "TODOS" || app.date === selectedDateFilter;
+        const matchesDate = app.date === selectedDateFilter;
         
         return matchesStatus && matchesDate;
     });

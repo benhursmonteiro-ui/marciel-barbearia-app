@@ -30,7 +30,7 @@ export default function AdminAgendamentos() {
         return matchesSearch && matchesStatus;
     });
 
-    const statusOptions = ["TODOS", "AGENDADO", "CONFIRMADO", "CONCLUIDO", "CANCELADO"];
+    const statusOptions = ["TODOS", "AGENDADO", "CONFIRMADO", "EM ATENDIMENTO", "CONCLUIDO", "CANCELADO"];
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-white p-6 lg:p-12 font-sans selection:bg-[#D4AF37] selection:text-black animate-fade-in-up">
