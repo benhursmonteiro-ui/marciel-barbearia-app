@@ -43,7 +43,12 @@ const StatCard = ({ title, value, subtitle, icon, trend }: any) => (
 );
 
 export default function BarberDashboard() {
-    const { appointments, currentUser, barbers } = useBarber();
+    const { appointments, currentUser, barbers, refreshData } = useBarber();
+
+    // Refresh data when component mounts to ensure fresh appointments
+    React.useEffect(() => {
+        refreshData();
+    }, []);
 
     // Get current barber profile
     const barberProfile = barbers.find(b => b.userId === currentUser?.id);

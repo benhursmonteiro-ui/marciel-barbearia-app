@@ -15,8 +15,14 @@ function Icon({ name, className }: { name: string, className?: string }) {
 }
 
 export default function BarberHorarios() {
-    const { barbers, currentUser, updateBarber, appointments, shopConfig, services } = useBarber();
+    const { barbers, currentUser, updateBarber, appointments, shopConfig, services, refreshData } = useBarber();
     
+    // Refresh data when component mounts to ensure fresh appointments
+    useEffect(() => {
+        console.log('[MBS Horarios] Component mounted, refreshing data...');
+        refreshData();
+    }, []);
+
     // Add helper functions
     const timeToMinutes = (time: string): number => {
         const [hours, minutes] = time.split(':').map(Number);
@@ -36,8 +42,31 @@ export default function BarberHorarios() {
 
     // Find current barber
     const currentBarber = useMemo(() => {
-        return barbers.find(b => b.userId === currentUser?.id);
+        const found = barbers.find(b => b.userId === currentUser?.id);
+        console.log('[MBS Horarios] Finding barber:', {
+            currentUserId: currentUser?.id,
+            barbersCount: barbers.length,
+            barberUserIds: barbers.map(b => ({ barberId: b.id, userId: b.userId, name: b.name })),
+            foundBarber: found ? { id: found.id, name: found.name, userId: found.userId } : null
+        });
+        return found;
     }, [barbers, currentUser]);
+
+    // Debug: Log appointments for this barber
+    useEffect(() => {
+        if (currentBarber) {
+            const myAppointments = appointments.filter(a => a.barberId === currentBarber.id);
+            console.log('[MBS Horarios] Appointments debug:', {
+                totalAppointments: appointments.length,
+                myBarberId: currentBarber.id,
+                myAppointments: myAppointments.length,
+                appointmentBarberIds: [...new Set(appointments.map(a => a.barberId))],
+                sampleAppointments: myAppointments.slice(0, 3).map(a => ({
+                    id: a.id, date: a.date, time: a.time, status: a.status, barberId: a.barberId
+                }))
+            });
+        }
+    }, [appointments, currentBarber]);
 
     // Initial load from context
     useEffect(() => {

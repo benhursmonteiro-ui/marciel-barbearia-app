@@ -154,6 +154,7 @@ interface BarberContextType {
     notifications: MBSNotification[];
 
     // Actions
+    refreshData: () => Promise<void>;
     login: (email: string, password: string) => Promise<User | null>;
     logout: () => void;
     register: (name: string, email: string, password: string, role: UserRole, phone?: string) => Promise<User | null>;
@@ -228,11 +229,14 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     // Function to load all data from Supabase
     const fetchFromSupabase = async () => {
         try {
-            const safeFetch = async (query: any) => {
+            const safeFetch = async (query: any, tableName?: string) => {
                 const { data, error } = await query;
                 if (error) {
-                    console.warn("Fetch warning:", error);
+                    console.warn(`[MBS] Fetch warning (${tableName || 'unknown'}):`, error.message);
                     return null;
+                }
+                if (tableName) {
+                    console.log(`[MBS] Fetched ${tableName}: ${data?.length ?? 0} records`);
                 }
                 return data;
             };
@@ -249,16 +253,16 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 dbIncomes,
                 dbNotifications
             ] = await Promise.all([
-                safeFetch(supabase.from('usuarios').select('*')),
-                safeFetch(supabase.from('barbeiros').select('*')),
-                safeFetch(supabase.from('servicos').select('*')),
-                safeFetch(supabase.from('agendamentos').select('*')),
-                safeFetch(supabase.from('promocoes').select('*')),
-                safeFetch(supabase.from('estoque').select('*')),
-                safeFetch(supabase.from('configuracoes_loja').select('*')),
-                safeFetch(supabase.from('despesas').select('*')),
-                safeFetch(supabase.from('entradas_avulsas').select('*')),
-                safeFetch(supabase.from('notificacoes').select('*').order('created_at', { ascending: false }))
+                safeFetch(supabase.from('usuarios').select('*'), 'usuarios'),
+                safeFetch(supabase.from('barbeiros').select('*'), 'barbeiros'),
+                safeFetch(supabase.from('servicos').select('*'), 'servicos'),
+                safeFetch(supabase.from('agendamentos').select('*'), 'agendamentos'),
+                safeFetch(supabase.from('promocoes').select('*'), 'promocoes'),
+                safeFetch(supabase.from('estoque').select('*'), 'estoque'),
+                safeFetch(supabase.from('configuracoes_loja').select('*'), 'configuracoes_loja'),
+                safeFetch(supabase.from('despesas').select('*'), 'despesas'),
+                safeFetch(supabase.from('entradas_avulsas').select('*'), 'entradas_avulsas'),
+                safeFetch(supabase.from('notificacoes').select('*').order('created_at', { ascending: false }), 'notificacoes')
             ]);
 
             if (dbUsers) setUsers(dbUsers.map((u: any) => ({
@@ -415,13 +419,33 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     // Realtime Subscriptions
     useEffect(() => {
         const agendamentosChannel = supabase.channel('public:agendamentos')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, (payload) => {
+                console.log('[MBS] Realtime: agendamentos changed', payload.eventType);
+                fetchFromSupabase();
+            })
+            .subscribe((status) => {
+                console.log('[MBS] Realtime agendamentos subscription:', status);
+            });
+
+        const notificacoesChannel = supabase.channel('public:notificacoes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacoes' }, (payload) => {
+                console.log('[MBS] Realtime: notificacoes changed', payload.eventType);
+                fetchFromSupabase();
+            })
+            .subscribe((status) => {
+                console.log('[MBS] Realtime notificacoes subscription:', status);
+            });
+
+        const barbeirosChannel = supabase.channel('public:barbeiros')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'barbeiros' }, (payload) => {
+                console.log('[MBS] Realtime: barbeiros changed', payload.eventType);
                 fetchFromSupabase();
             })
             .subscribe();
 
-        const notificacoesChannel = supabase.channel('public:notificacoes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacoes' }, () => {
+        const servicosChannel = supabase.channel('public:servicos')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, (payload) => {
+                console.log('[MBS] Realtime: servicos changed', payload.eventType);
                 fetchFromSupabase();
             })
             .subscribe();
@@ -429,7 +453,20 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         return () => {
             supabase.removeChannel(agendamentosChannel);
             supabase.removeChannel(notificacoesChannel);
+            supabase.removeChannel(barbeirosChannel);
+            supabase.removeChannel(servicosChannel);
         };
+    }, []);
+
+    // Periodic polling every 30 seconds to ensure data stays fresh
+    // This guarantees appointments appear even if realtime fails
+    useEffect(() => {
+        const interval = setInterval(() => {
+            console.log('[MBS] Periodic refresh triggered');
+            fetchFromSupabase();
+        }, 30000);
+
+        return () => clearInterval(interval);
     }, []);
 
 
@@ -1309,6 +1346,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         <BarberContext.Provider value={{
             users, services, barbers, appointments, promotions, products, currentUser, shopConfig, isAuthReady, cart, expenses, incomes,
             notifications,
+            refreshData: fetchFromSupabase,
             login, logout, register, addAppointment, updateAppointmentStatus,
             addService, updateService, removeService, addBarber, updateBarber, removeBarber, updateUser, updateShopConfig, resetToSeed,
             addPromotion, updatePromotion, removePromotion, addProduct, updateProduct, removeProduct, loginWithGoogle,

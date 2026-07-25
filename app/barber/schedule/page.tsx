@@ -16,11 +16,16 @@ import { Calendar } from '@/components/ui/Calendar';
 import { useBarber, Appointment, AppointmentStatus } from '@/context/BarberContext';
 
 export default function BarberSchedule() {
-    const { appointments, updateAppointmentStatus, currentUser, barbers, users } = useBarber();
+    const { appointments, updateAppointmentStatus, currentUser, barbers, users, refreshData } = useBarber();
     const [selectedDateFilter, setSelectedDateFilter] = useState(new Date().toISOString().split('T')[0]);
     const [statusFilter, setStatusFilter] = useState("TODOS");
     const [activeApt, setActiveApt] = useState<Appointment | null>(null);
     const [showCalendar, setShowCalendar] = useState(false);
+
+    // Refresh data when component mounts to ensure fresh appointments
+    React.useEffect(() => {
+        refreshData();
+    }, []);
 
     // Get current barber's ID
     const barberProfile = barbers.find(b => b.userId === currentUser?.id);
