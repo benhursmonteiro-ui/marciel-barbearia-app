@@ -6,6 +6,7 @@ import { useBarber } from "../../../context/BarberContext";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Calendar } from "../../../components/ui/Calendar";
+import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr } from "@/lib/timeUtils";
 
 // Safe icon renderer
 function Icon({ name, className }: { name: string, className?: string }) {
@@ -23,32 +24,19 @@ export default function BarberHorarios() {
         refreshData();
     }, []);
 
-    // Add helper functions
-    const timeToMinutes = (time: string): number => {
-        const [hours, minutes] = time.split(':').map(Number);
-        return hours * 60 + minutes;
-    };
-
-    const getDurationMinutes = (durationStr: string): number => {
-        if (!durationStr) return 30;
-        const matches = durationStr.match(/\d+/);
-        return matches ? parseInt(matches[0]) : 30;
-    };
     const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
     const [holidays, setHolidays] = useState<number[]>([]);
     const [viewMode, setViewMode] = useState<'grid' | 'calendar' | 'rules'>('grid');
     const [isSaving, setIsSaving] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(getTodayLocalDateStr());
 
-    // Find current barber
+    // Find current barber robustly
     const currentBarber = useMemo(() => {
-        const found = barbers.find(b => b.userId === currentUser?.id);
-        console.log('[MBS Horarios] Finding barber:', {
-            currentUserId: currentUser?.id,
-            barbersCount: barbers.length,
-            barberUserIds: barbers.map(b => ({ barberId: b.id, userId: b.userId, name: b.name })),
-            foundBarber: found ? { id: found.id, name: found.name, userId: found.userId } : null
-        });
+        const found = barbers.find(b => 
+            b.userId === currentUser?.id || 
+            b.id === currentUser?.id || 
+            b.name.toLowerCase() === currentUser?.name?.toLowerCase()
+        );
         return found;
     }, [barbers, currentUser]);
 

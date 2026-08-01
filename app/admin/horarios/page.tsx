@@ -6,6 +6,7 @@ import { useBarber } from "../../../context/BarberContext";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Calendar } from "../../../components/ui/Calendar";
+import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr } from "@/lib/timeUtils";
 
 // Safe icon renderer
 function Icon({ name, className }: { name: string, className?: string }) {
@@ -17,28 +18,11 @@ function Icon({ name, className }: { name: string, className?: string }) {
 export default function AdminHorarios() {
     const { shopConfig, updateShopConfig, appointments, barbers, updateBarber, services } = useBarber();
     
-    // Add helper functions
-    const timeToMinutes = (time: string): number => {
-        const [hours, minutes] = time.split(':').map(Number);
-        return hours * 60 + minutes;
-    };
-
-    const getDurationMinutes = (durationStr: string): number => {
-        if (!durationStr) return 30;
-        const matches = durationStr.match(/\d+/);
-        return matches ? parseInt(matches[0]) : 30;
-    };
     const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
     const [holidays, setHolidays] = useState<number[]>([]);
     const [viewMode, setViewMode] = useState<'grid' | 'calendar' | 'rules'>('grid');
     const [isSaving, setIsSaving] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(() => {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = (now.getMonth() + 1).toString().padStart(2, '0');
-        const d = now.getDate().toString().padStart(2, '0');
-        return `${y}-${m}-${d}`;
-    });
+    const [selectedDate, setSelectedDate] = useState(() => getTodayLocalDateStr());
     const [selectedBarberId, setSelectedBarberId] = useState<string>('all');
 
     const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
@@ -74,7 +58,7 @@ export default function AdminHorarios() {
             if (!['agendado', 'confirmado', 'em atendimento'].includes(apt.status.toLowerCase())) return false;
 
             const appMin = timeToMinutes(apt.time);
-            const service = services.find(s => s.id === apt.serviceId);
+            const service = services.find(s => s.id === apt.serviceId || s.name === apt.serviceName);
             const durMin = getDurationMinutes(service?.duration || "30 min");
 
             return slotMin >= appMin && slotMin < (appMin + durMin);

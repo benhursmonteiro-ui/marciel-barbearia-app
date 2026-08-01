@@ -680,7 +680,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         const service = services.find(s => s.id === appData.serviceId);
         const commissionVal = (appData.price * (barber?.commission || 40)) / 100;
 
-        const { data: newApp, error } = await supabase
+        const { data: newAppList, error } = await supabase
             .from('agendamentos')
             .insert([{
                 cliente_id: appData.clientId,
@@ -695,18 +695,13 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 horario: appData.time,
                 status: 'agendado'
             }])
-            .select()
-            .single();
+            .select();
+
+        const newApp = newAppList?.[0];
 
         if (error) {
             console.error("Erro ao agendar no Supabase:", error);
             throw new Error(`Erro ao salvar no banco de dados: ${error.message}`);
-        }
-
-        if (!newApp) {
-            console.error("Supabase inseriu mas não retornou o objeto (possível erro de RLS).");
-            // Se falhou o retorno mas não deu erro, tentamos montar localmente
-            // Isso acontece se o usuário tiver permissão de INSERT mas não de SELECT
         }
 
         const formattedApp: Appointment = {
@@ -726,7 +721,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         };
 
         setAppointments(prev => {
-            const newAppointments = [formattedApp, ...prev];
+            const newAppointments = [formattedApp, ...prev.filter(a => a.id !== formattedApp.id)];
             return newAppointments.sort((a, b) => {
                 const dateCompare = (b.date || "").localeCompare(a.date || "");
                 if (dateCompare !== 0) return dateCompare;
@@ -736,7 +731,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
         // NOTIFICATIONS
         const adminUsers = users.filter(u => u.role === 'admin');
-        const barberUser = users.find(u => u.id === barber?.userId);
+        const barberUser = users.find(u => u.id === barber?.userId || u.name.toLowerCase() === barber?.name?.toLowerCase());
 
         const notificationInserts = [];
 

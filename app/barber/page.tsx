@@ -22,6 +22,8 @@ import {
   AreaSplineChart,
 } from "@/components/ui/AnalyticsCharts";
 
+import { getTodayLocalDateStr } from "@/lib/timeUtils";
+
 export default function BarberDashboard() {
   const { appointments, currentUser, barbers, refreshData } = useBarber();
 
@@ -29,9 +31,14 @@ export default function BarberDashboard() {
     refreshData();
   }, []);
 
-  const barberProfile = barbers.find((b) => b.userId === currentUser?.id);
+  const barberProfile = barbers.find(
+    (b) =>
+      b.userId === currentUser?.id ||
+      b.id === currentUser?.id ||
+      b.name.toLowerCase() === currentUser?.name?.toLowerCase()
+  );
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getTodayLocalDateStr();
   const todaysApps = appointments.filter(
     (a) => a.barberId === barberProfile?.id && a.date === todayStr
   );

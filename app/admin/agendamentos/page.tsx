@@ -13,9 +13,13 @@ function Icon({ name, className }: { name: string, className?: string }) {
 }
 
 export default function AdminAgendamentos() {
-    const { appointments, updateAppointmentStatus, updateAppointmentPayment, currentUser, barbers, users } = useBarber();
+    const { appointments, updateAppointmentStatus, updateAppointmentPayment, currentUser, barbers, users, refreshData } = useBarber();
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("TODOS");
+
+    React.useEffect(() => {
+        refreshData();
+    }, []);
 
     const filteredAppointments = appointments.filter(apt => {
         const clientName = apt.clientName || "";

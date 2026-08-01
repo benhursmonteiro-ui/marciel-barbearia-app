@@ -14,10 +14,14 @@ import { useBarber, Appointment } from '@/context/BarberContext';
 
 // Mock Data
 export default function AppointmentsPage() {
-    const { appointments, currentUser, updateAppointmentStatus } = useBarber();
+    const { appointments, currentUser, updateAppointmentStatus, refreshData } = useBarber();
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
     const [cancelingId, setCancelingId] = useState<string | null>(null);
     const [isCanceling, setIsCanceling] = useState(false);
+
+    React.useEffect(() => {
+        refreshData();
+    }, []);
 
     const handleCancel = async (id: string) => {
         setIsCanceling(true);
@@ -72,7 +76,9 @@ export default function AppointmentsPage() {
                                     <div className="flex gap-6">
                                         <div className="hidden sm:flex flex-col items-center justify-center bg-black/40 border border-[var(--color-dark-border)] w-20 h-20 rounded-3xl group-hover:border-[var(--color-primary-gold)]/30 transition-colors">
                                             <p className="text-lg font-black text-white">{apt.date?.split('-')?.[2] || '?'}</p>
-                                            <p className="text-[9px] text-[var(--color-primary-gold)] font-black uppercase tracking-widest">SET</p>
+                                            <p className="text-[9px] text-[var(--color-primary-gold)] font-black uppercase tracking-widest">
+                                                {apt.date ? new Date(apt.date + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase() : '---'}
+                                            </p>
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-3 mb-2">

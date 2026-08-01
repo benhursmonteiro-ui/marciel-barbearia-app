@@ -14,10 +14,11 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Calendar } from '@/components/ui/Calendar';
 import { useBarber, Appointment, AppointmentStatus } from '@/context/BarberContext';
+import { getTodayLocalDateStr } from '@/lib/timeUtils';
 
 export default function BarberSchedule() {
     const { appointments, updateAppointmentStatus, currentUser, barbers, users, refreshData } = useBarber();
-    const [selectedDateFilter, setSelectedDateFilter] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDateFilter, setSelectedDateFilter] = useState(getTodayLocalDateStr());
     const [statusFilter, setStatusFilter] = useState("TODOS");
     const [activeApt, setActiveApt] = useState<Appointment | null>(null);
     const [showCalendar, setShowCalendar] = useState(false);
@@ -27,8 +28,12 @@ export default function BarberSchedule() {
         refreshData();
     }, []);
 
-    // Get current barber's ID
-    const barberProfile = barbers.find(b => b.userId === currentUser?.id);
+    // Get current barber's ID (robust matching)
+    const barberProfile = barbers.find(b => 
+        b.userId === currentUser?.id || 
+        b.id === currentUser?.id || 
+        b.name.toLowerCase() === currentUser?.name?.toLowerCase()
+    );
 
     const statusOptions = ["TODOS", "AGENDADO", "CONFIRMADO", "EM ATENDIMENTO", "CONCLUIDO", "CANCELADO"];
 
@@ -64,16 +69,18 @@ export default function BarberSchedule() {
         }
     };
 
+    const parsedFilterDate = new Date(selectedDateFilter + 'T12:00:00');
+
     return (
         <div className="max-w-6xl mx-auto space-y-10 animate-fade-in-up">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
                 <div className="flex items-center gap-6">
                     <div className="w-16 h-16 bg-[var(--color-primary-gold)]/10 border border-[var(--color-primary-gold)]/30 rounded-3xl flex flex-col items-center justify-center text-[var(--color-primary-gold)] shadow-inner">
                         <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">
-                            {new Date(selectedDateFilter).toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase()}
+                            {parsedFilterDate.toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase()}
                         </p>
                         <p className="text-xl font-black leading-none">
-                            {new Date(selectedDateFilter).getDate() + 1}
+                            {parsedFilterDate.getDate()}
                         </p>
                     </div>
                     <div>

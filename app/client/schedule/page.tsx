@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Calendar } from '@/components/ui/Calendar';
 import { useBarber, Service, Barber, ShopConfig } from '@/context/BarberContext';
 import { useRouter } from 'next/navigation';
+import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr } from '@/lib/timeUtils';
 
 export default function SchedulePage() {
     const router = useRouter();
@@ -26,18 +27,6 @@ export default function SchedulePage() {
     const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [selectedTime, setSelectedTime] = useState<string>('');
-
-    // Utility functions moved inside or imported if available
-    const timeToMinutes = (time: string): number => {
-        const [hours, minutes] = time.split(':').map(Number);
-        return hours * 60 + minutes;
-    };
-
-    const getDurationMinutes = (durationStr: string): number => {
-        if (!durationStr) return 30;
-        const matches = durationStr.match(/\d+/);
-        return matches ? parseInt(matches[0]) : 30;
-    };
 
     // Filter available slots
     const availableSlots = useMemo(() => {
@@ -78,7 +67,7 @@ export default function SchedulePage() {
 
         // Past times for today
         const now = new Date();
-        const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+        const todayStr = getTodayLocalDateStr();
         const isToday = selectedDate === todayStr;
         const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
@@ -89,8 +78,8 @@ export default function SchedulePage() {
             // 1. Check if occupied by an appointment (including duration)
             const isOccupiedByAppointment = relevantAppointments.some(apt => {
                 const appMin = timeToMinutes(apt.time);
-                // We find the service to get its duration
-                const service = services.find(s => s.id === apt.serviceId);
+                // We find the service to get its duration (matching by id or name)
+                const service = services.find(s => s.id === apt.serviceId || s.name === apt.serviceName);
                 const durMin = getDurationMinutes(service?.duration || "30 min");
                 return slotMin >= appMin && slotMin < (appMin + durMin);
             });
