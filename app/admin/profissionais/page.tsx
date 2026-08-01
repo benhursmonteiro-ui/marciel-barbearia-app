@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import * as LucideIcons from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { Card } from "../../../components/ui/Card";
 import { useBarber, Barber as ContextBarber } from "@/context/BarberContext";
 import { uploadImage } from "@/lib/supabase";
 
@@ -14,7 +15,6 @@ function Icon({ name, className }: { name: string; className?: string }) {
 }
 
 const SPECIALTIES = ["Corte Degradê", "Corte Social", "Barba", "Pigmentação", "Relaxamento", "Hidratação", "Pezinho"];
-const DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 interface BarberFormState {
     name: string;
@@ -33,11 +33,31 @@ const EMPTY_FORM: BarberFormState = {
 export default function AdminProfissionais() {
     const { barbers, users, addBarber, updateBarber, removeBarber } = useBarber();
 
+    const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState<BarberFormState>(EMPTY_FORM);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Calculated team metrics
+    const stats = useMemo(() => {
+        const total = barbers.length;
+        const active = barbers.filter(b => b.active).length;
+        const avgCommission = total > 0
+            ? Math.round(barbers.reduce((acc, b) => acc + (b.commission || 0), 0) / total)
+            : 0;
+        const avgRating = total > 0
+            ? (barbers.reduce((acc, b) => acc + (b.rating || 5.0), 0) / total).toFixed(1)
+            : "5.0";
+
+        return { total, active, avgCommission, avgRating };
+    }, [barbers]);
+
+    const filteredBarbers = barbers.filter(b =>
+        (b.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.specialty || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     const openCreate = () => {
         setForm({ ...EMPTY_FORM });
@@ -47,7 +67,6 @@ export default function AdminProfissionais() {
     };
 
     const openEdit = (barber: ContextBarber) => {
-        // Find user by barber's userId to get email
         const user = users.find((u: any) => u.id === barber.userId);
         
         setForm({
@@ -83,7 +102,7 @@ export default function AdminProfissionais() {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.name || !form.email) return;
+        if (!form.name || (!isEditing && !form.email)) return;
 
         setIsSaving(true);
         try {
@@ -134,56 +153,101 @@ export default function AdminProfissionais() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-6 lg:p-10 font-sans animate-fade-in-up">
-            <header className="mb-8 md:mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 text-center md:text-left">
+        <div className="min-h-screen bg-[#0a0a0a] text-white p-4 md:p-6 lg:p-10 font-sans selection:bg-[#D4AF37] selection:text-black animate-fade-in-up">
+            
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 md:mb-10">
                 <div>
-                    <h1 className="text-3xl md:text-4xl font-black tracking-tighter mb-1 italic">PROFISSIONAIS</h1>
+                    <h1 className="text-3xl md:text-4xl font-black tracking-tighter mb-2 italic">PROFISSIONAIS</h1>
                     <p className="text-gray-500 uppercase text-[9px] md:text-[10px] font-bold tracking-[0.2em]">Gestão de equipe e comissões</p>
                 </div>
-                <Button onClick={openCreate} className="gap-2 h-14 bg-[#D4AF37] text-black font-black tracking-widest uppercase rounded-2xl shadow-lg shadow-[#D4AF37]/20 hover:bg-white transition-all w-full md:w-auto">
-                    <Icon name="UserPlus" className="w-5 h-5" /> Cadastrar Barbeiro
-                </Button>
-            </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {barbers.length > 0 ? barbers.map(b => (
-                    <div key={b.id} className={`bg-[#111111] border border-[#1f1f1f] rounded-[32px] p-8 flex flex-col gap-6 transition-all duration-500 relative group hover:border-[#D4AF37]/40 ${!b.active ? 'opacity-50 grayscale' : ''}`}>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+                    <div className="relative w-full sm:flex-1 lg:w-80">
+                        <Icon name="Search" className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <Input
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Buscar profissional..."
+                            className="pl-12 bg-[#111] border-[#1f1f1f] h-14 rounded-2xl focus:border-[#D4AF37]/50"
+                        />
+                    </div>
+                    <Button 
+                        onClick={openCreate} 
+                        className="bg-[#D4AF37] text-black hover:bg-white h-14 rounded-2xl px-8 font-black uppercase tracking-wider shadow-xl shadow-[#D4AF37]/10 w-full sm:w-auto flex items-center justify-center gap-2"
+                    >
+                        <Icon name="UserPlus" className="w-5 h-5" /> Cadastrar Barbeiro
+                    </Button>
+                </div>
+            </div>
+
+            {/* KPI Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-10">
+                {[
+                    { label: "Total Barbeiros", val: stats.total, icon: "Users", color: "text-blue-500" },
+                    { label: "Equipe Ativa", val: stats.active, icon: "CheckCircle2", color: "text-emerald-500" },
+                    { label: "Comissão Média", val: `${stats.avgCommission}%`, icon: "Percent", color: "text-amber-500" },
+                    { label: "Rating Médio", val: stats.avgRating, icon: "Star", color: "text-[#D4AF37]" }
+                ].map((stat, i) => (
+                    <Card key={i} className="bg-[#111] border-[#1f1f1f] p-4 md:p-6 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-white/[0.02] rounded-bl-full pointer-events-none transition-all group-hover:scale-150" />
+                        <div className="flex flex-col xs:flex-row items-center xs:items-start gap-4 relative z-10 text-center xs:text-left">
+                            <div className={`${stat.color} bg-[#1a1a1a] w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center border border-white/5 shrink-0`}>
+                                <Icon name={stat.icon} className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[8px] md:text-[10px] uppercase text-gray-500 font-black tracking-widest truncate">{stat.label}</p>
+                                <h3 className="text-lg md:text-2xl font-black truncate">{stat.val}</h3>
+                            </div>
+                        </div>
+                    </Card>
+                ))}
+            </div>
+
+            {/* Barbers Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredBarbers.length > 0 ? filteredBarbers.map(b => (
+                    <div key={b.id} className={`bg-[#111111] border border-[#1f1f1f] rounded-3xl p-6 flex flex-col gap-6 transition-all duration-300 relative group hover:border-[#D4AF37]/40 shadow-xl ${!b.active ? 'opacity-50 grayscale' : ''}`}>
                         <div className="flex flex-col items-center text-center gap-3">
-                            <div className="w-24 h-24 rounded-full border-2 border-[#D4AF37]/20 overflow-hidden flex items-center justify-center bg-[#1a1a1a] text-3xl font-black text-[#D4AF37] group-hover:border-[#D4AF37]/60 transition-all">
-                                {b.name?.[0] || '?'}
+                            <div className="w-24 h-24 rounded-2xl border-2 border-[#D4AF37]/20 overflow-hidden flex items-center justify-center bg-[#1a1a1a] text-3xl font-black text-[#D4AF37] group-hover:border-[#D4AF37]/60 transition-all shadow-inner relative">
+                                {b.photo ? (
+                                    <img src={b.photo} alt={b.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span>{b.name?.[0] || '?'}</span>
+                                )}
                             </div>
                             <div>
-                                <div className="flex items-center justify-center gap-2">
+                                <div className="flex items-center justify-center gap-2 mb-1">
                                     <h3 className="text-lg font-black tracking-tight">{b.name}</h3>
-                                    <span className={`w-2 h-2 rounded-full ${b.active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+                                    <span className={`w-2.5 h-2.5 rounded-full ${b.active ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
                                 </div>
-                                <p className="text-[#D4AF37] text-[9px] uppercase font-black tracking-[0.3em]">{b.specialty}</p>
-                                <p className="text-gray-500 text-[8px] font-bold uppercase mt-1 italic">{b.workingHours}</p>
+                                <p className="text-[#D4AF37] text-[9px] uppercase font-black tracking-[0.2em]">{b.specialty}</p>
+                                <p className="text-gray-500 text-[9px] font-bold uppercase mt-1 italic">{b.workingHours || "08:00 às 18:00"}</p>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-[#0a0a0a] p-3 rounded-2xl border border-[#1f1f1f] text-center">
-                                <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Comissão</p>
-                                <p className="text-base font-black">{b.commission}%</p>
+                                <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest mb-1">Comissão</p>
+                                <p className="text-base font-black text-white">{b.commission}%</p>
                             </div>
                             <div className="bg-[#0a0a0a] p-3 rounded-2xl border border-[#1f1f1f] text-center">
-                                <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Rating</p>
-                                <p className="text-base font-black text-[#D4AF37]">{(b.rating || 5.0).toFixed(1)}</p>
+                                <p className="text-[8px] text-gray-500 uppercase font-black tracking-widest mb-1">Rating</p>
+                                <p className="text-base font-black text-[#D4AF37]">{(b.rating || 5.0).toFixed(1)} ★</p>
                             </div>
                         </div>
 
                         <div className="flex gap-2 mt-auto">
                             <button
                                 onClick={() => openEdit(b)}
-                                className="w-11 h-11 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/10 flex items-center justify-center hover:bg-[#D4AF37] hover:text-black transition-all"
+                                className="w-11 h-11 rounded-xl bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 flex items-center justify-center hover:bg-[#D4AF37] hover:text-black transition-all"
                                 title="Editar"
                             >
                                 <Icon name="Edit3" className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => toggleStatus(b)}
-                                className={`flex-1 h-11 text-[9px] font-black uppercase tracking-widest gap-2 rounded-xl transition-all border ${b.active ? 'bg-red-500/10 text-red-500 border-red-500/10 hover:bg-red-500 hover:text-white' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/10 hover:bg-emerald-500 hover:text-white'}`}
+                                className={`flex-1 h-11 text-[9px] font-black uppercase tracking-widest gap-2 rounded-xl transition-all border flex items-center justify-center ${b.active ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500 hover:text-white'}`}
                             >
                                 <Icon name={b.active ? "UserX" : "UserCheck"} className="w-4 h-4" />
                                 {b.active ? "Desativar" : "Ativar"}
@@ -198,8 +262,12 @@ export default function AdminProfissionais() {
                         </div>
                     </div>
                 )) : (
-                    <div className="col-span-full py-20 text-center text-gray-600 italic">
-                        <p>Nenhum profissional cadastrado.</p>
+                    <div className="col-span-full bg-[#111111] border border-[#1f1f1f] rounded-3xl p-16 flex flex-col items-center justify-center text-center shadow-2xl">
+                        <div className="w-16 h-16 bg-[#1a1a1a] rounded-2xl flex items-center justify-center mb-4 text-gray-600 border border-white/5">
+                            <Icon name="Users" className="w-8 h-8" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-300 mb-1">Nenhum profissional encontrado</h3>
+                        <p className="text-gray-500 text-xs uppercase tracking-widest font-bold">Cadastre novos barbeiros para compor a equipe.</p>
                     </div>
                 )}
             </div>
