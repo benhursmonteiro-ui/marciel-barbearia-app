@@ -13,7 +13,7 @@ function Icon({ name, className }: { name: string, className?: string }) {
 }
 
 export default function AdminAgendamentos() {
-    const { appointments, updateAppointmentStatus, currentUser, barbers, users } = useBarber();
+    const { appointments, updateAppointmentStatus, updateAppointmentPayment, currentUser, barbers, users } = useBarber();
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("TODOS");
 
@@ -132,32 +132,55 @@ export default function AdminAgendamentos() {
                                             );
                                         })()}
 
-                                        {(apt.status || '').toLowerCase() === 'agendado' && (
+                                        {((apt.status || '').toLowerCase() === 'agendado' || (apt.status || '').toLowerCase() === 'confirmado') && (
                                             <>
                                                 <button
-                                                    onClick={() => updateAppointmentStatus(apt.id, 'confirmado')}
-                                                    className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/0 hover:shadow-emerald-500/20"
-                                                    title="Confirmar"
+                                                    onClick={() => {
+                                                        updateAppointmentStatus(apt.id, 'concluido');
+                                                        updateAppointmentPayment(apt.id, 'pago', 'pix');
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all text-xs font-bold flex items-center gap-1"
+                                                    title="Concluir e Marcar Pago"
                                                 >
-                                                    <Icon name="Check" className="w-5 h-5" />
+                                                    <Icon name="Check" className="w-4 h-4" /> Pago
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        updateAppointmentStatus(apt.id, 'concluido');
+                                                        updateAppointmentPayment(apt.id, 'fiado', 'fiado');
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500 hover:text-slate-950 transition-all text-xs font-bold flex items-center gap-1"
+                                                    title="Concluir no Fiado"
+                                                >
+                                                    <Icon name="BookOpen" className="w-4 h-4" /> Fiado
                                                 </button>
                                                 <button
                                                     onClick={() => updateAppointmentStatus(apt.id, 'cancelado')}
-                                                    className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/0 hover:shadow-red-500/20"
+                                                    className="w-9 h-9 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
                                                     title="Cancelar"
                                                 >
-                                                    <Icon name="X" className="w-5 h-5" />
+                                                    <Icon name="X" className="w-4 h-4" />
                                                 </button>
                                             </>
                                         )}
-                                        {(apt.status || '').toLowerCase() !== 'agendado' && (
-                                            <button
-                                                onClick={() => updateAppointmentStatus(apt.id, 'agendado')}
-                                                className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-[#1a1a1a] text-gray-600 flex items-center justify-center hover:text-white transition-all border border-[#222]"
-                                                title="Reverter Status"
-                                            >
-                                                <Icon name="RotateCcw" className="w-4 h-4" />
-                                            </button>
+                                        {(apt.status || '').toLowerCase() === 'concluido' && (
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${
+                                                    apt.isFiado || apt.paymentStatus === 'fiado' 
+                                                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                }`}>
+                                                    {apt.isFiado || apt.paymentStatus === 'fiado' ? '📖 FIADO PENDENTE' : '✓ PAGO'}
+                                                </span>
+                                                { (apt.isFiado || apt.paymentStatus === 'fiado') && !apt.fiadoPaid && (
+                                                    <button
+                                                        onClick={() => updateAppointmentPayment(apt.id, 'pago', 'dinheiro')}
+                                                        className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 text-[10px] font-extrabold hover:bg-emerald-400 transition-all"
+                                                    >
+                                                        Quitar Fiado
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 </div>

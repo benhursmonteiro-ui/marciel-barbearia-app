@@ -4,305 +4,832 @@ import React, { useState } from "react";
 import * as LucideIcons from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
-import { useBarber } from "@/context/BarberContext";
+import { useBarber, Appointment } from "@/context/BarberContext";
 
 // Safe icon renderer
-function Icon({ name, className }: { name: string, className?: string }) {
-    const LucideIcon = (LucideIcons as any)[name];
-    if (!LucideIcon) return <div className={className} style={{ width: '20px', height: '20px', backgroundColor: '#333', borderRadius: '4px' }} />;
-    return <LucideIcon className={className} />;
+function Icon({ name, className }: { name: string; className?: string }) {
+  const LucideIcon = (LucideIcons as any)[name];
+  if (!LucideIcon)
+    return (
+      <div
+        className={className}
+        style={{
+          width: "20px",
+          height: "20px",
+          backgroundColor: "#333",
+          borderRadius: "4px",
+        }}
+      />
+    );
+  return <LucideIcon className={className} />;
 }
 
-// Robust, exception-free date parser that handles both 'YYYY-MM-DD' and 'DD/MM/YYYY'
+// Exception-free date parser
 function parseDateSafely(dateStr: string) {
-    if (!dateStr || typeof dateStr !== 'string') {
-        return { day: '--', month: '---' };
-    }
-    
-    const cleanStr = dateStr.trim();
-    
-    // Check for YYYY-MM-DD
-    let parts = cleanStr.split('-');
-    if (parts.length === 3) {
-        const day = parts[2];
-        const monthIndex = parseInt(parts[1], 10) - 1;
-        const monthsAbbr = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-        const month = monthsAbbr[monthIndex] || '---';
-        return { day, month };
-    }
-    
-    // Check for DD/MM/YYYY
-    parts = cleanStr.split('/');
-    if (parts.length === 3) {
-        const day = parts[0];
-        const monthIndex = parseInt(parts[1], 10) - 1;
-        const monthsAbbr = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-        const month = monthsAbbr[monthIndex] || '---';
-        return { day, month };
-    }
-    
-    return { day: '--', month: '---' };
+  if (!dateStr || typeof dateStr !== "string") {
+    return { day: "--", month: "---" };
+  }
+
+  const cleanStr = dateStr.trim();
+  let parts = cleanStr.split("-");
+  if (parts.length === 3) {
+    const day = parts[2];
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const monthsAbbr = [
+      "JAN",
+      "FEV",
+      "MAR",
+      "ABR",
+      "MAI",
+      "JUN",
+      "JUL",
+      "AGO",
+      "SET",
+      "OUT",
+      "NOV",
+      "DEZ",
+    ];
+    const month = monthsAbbr[monthIndex] || "---";
+    return { day, month };
+  }
+
+  parts = cleanStr.split("/");
+  if (parts.length === 3) {
+    const day = parts[0];
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const monthsAbbr = [
+      "JAN",
+      "FEV",
+      "MAR",
+      "ABR",
+      "MAI",
+      "JUN",
+      "JUL",
+      "AGO",
+      "SET",
+      "OUT",
+      "NOV",
+      "DEZ",
+    ];
+    const month = monthsAbbr[monthIndex] || "---";
+    return { day, month };
+  }
+
+  return { day: "--", month: "---" };
 }
 
 export default function AdminClientes() {
-    const { users, updateUser, appointments } = useBarber();
-    const [searchTerm, setSearchTerm] = useState("");
+  const {
+    users,
+    updateUser,
+    register,
+    appointments,
+    updateAppointmentPayment,
+    addFiadoEntry,
+  } = useBarber();
+  const [searchTerm, setSearchTerm] = useState("");
 
-    // Filter only clients from the users list
-    const clients = users.filter(u => u.role === 'client');
+  const clients = users.filter((u) => u.role === "client");
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newClient, setNewClient] = useState({ name: "", email: "", phone: "" });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newClient, setNewClient] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
 
-    // History Modal states
-    const [selectedClientForHistory, setSelectedClientForHistory] = useState<any>(null);
-    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  // History & Caderninho Modal states
+  const [selectedClientForHistory, setSelectedClientForHistory] =
+    useState<any>(null);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
-    const handleAddClient = (e: React.FormEvent) => {
-        e.preventDefault();
-        alert("Para cadastrar um cliente, ele deve se registrar pelo portal do cliente.");
-        setIsModalOpen(false);
-    };
+  const [selectedClientForFiado, setSelectedClientForFiado] =
+    useState<any>(null);
+  const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
+  const [isGeneralFiadoOpen, setIsGeneralFiadoOpen] = useState(false);
 
-    const handleToggleBlock = async (client: any) => {
-        const isBlocked = client.blocked;
-        const actionText = isBlocked ? 'desbloquear' : 'bloquear';
-        
-        if (confirm(`Deseja realmente ${actionText} o cliente ${client.name}?`)) {
-            try {
-                await updateUser(client.id, { blocked: !isBlocked });
-            } catch (err: any) {
-                alert(`Erro ao atualizar status do cliente: ${err.message}`);
-            }
-        }
-    };
+  // Manual Fiado Form state
+  const [manualFiadoService, setManualFiadoService] = useState("");
+  const [manualFiadoPrice, setManualFiadoPrice] = useState("");
 
-    const handleViewHistory = (client: any) => {
-        setSelectedClientForHistory(client);
-        setIsHistoryModalOpen(true);
-    };
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClient.name) {
+      alert("Por favor, preencha o nome do cliente.");
+      return;
+    }
 
-    const filteredClients = clients.filter(c =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
+    const emailToUse = newClient.email || `cliente.${Date.now()}@barbearia.com`;
+
+    try {
+      await register(newClient.name, emailToUse, "123456", "client", newClient.phone);
+      setNewClient({ name: "", email: "", phone: "" });
+      setIsModalOpen(false);
+      alert(`Cliente ${newClient.name} cadastrado com sucesso!`);
+    } catch (err: any) {
+      alert(`Erro ao cadastrar cliente: ${err.message}`);
+    }
+  };
+
+  const handleToggleBlock = async (client: any) => {
+    const isBlocked = client.blocked;
+    const actionText = isBlocked ? "desbloquear" : "bloquear";
+
+    if (confirm(`Deseja realmente ${actionText} o cliente ${client.name}?`)) {
+      try {
+        await updateUser(client.id, { blocked: !isBlocked });
+      } catch (err: any) {
+        alert(`Erro ao atualizar status do cliente: ${err.message}`);
+      }
+    }
+  };
+
+  const handleViewHistory = (client: any) => {
+    setSelectedClientForHistory(client);
+    setIsHistoryModalOpen(true);
+  };
+
+  const handleViewFiado = (client: any) => {
+    setSelectedClientForFiado(client);
+    setIsFiadoModalOpen(true);
+  };
+
+  const handleSettleFiado = async (appId: string) => {
+    if (confirm("Confirmar baixa e pagamento deste fiado?")) {
+      await updateAppointmentPayment(appId, "pago", "dinheiro");
+    }
+  };
+
+  const handleAddManualFiadoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClientForFiado || !manualFiadoService || !manualFiadoPrice)
+      return;
+
+    await addFiadoEntry(
+      selectedClientForFiado.id,
+      selectedClientForFiado.name,
+      manualFiadoService,
+      parseFloat(manualFiadoPrice)
     );
 
-    // Sort clients alphabetically by name
-    const sortedClients = [...filteredClients].sort((a, b) => a.name.localeCompare(b.name));
+    setManualFiadoService("");
+    setManualFiadoPrice("");
+  };
 
-    return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white p-6 lg:p-12 font-sans selection:bg-[#D4AF37] selection:text-black animate-fade-in-up">
-            <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+  const filteredClients = clients.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const sortedClients = [...filteredClients].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  // Calculate global fiado statistics
+  const fiadoAppointments = appointments.filter(
+    (a) => a.isFiado || a.paymentStatus === "fiado" || a.paymentMethod === "fiado"
+  );
+  const pendingFiados = fiadoAppointments.filter(
+    (a) => !a.fiadoPaid && a.paymentStatus !== "pago"
+  );
+  const totalFiadoDebtGeral = pendingFiados.reduce(
+    (acc, a) => acc + (a.price || 0),
+    0
+  );
+
+  return (
+    <div className="min-h-screen bg-[#080a0f] text-slate-100 p-6 lg:p-10 font-sans animate-fade-in-up">
+      {/* Top Header */}
+      <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/5 pb-6">
+        <div>
+          <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-wider inline-block mb-2">
+            Gestão & Fiado
+          </span>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">
+            Base de{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">
+              Clientes & Fiado
+            </span>
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Caderninho digital de débitos e histórico completo de atendimentos.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          <div className="relative flex-1 md:w-72">
+            <Input
+              placeholder="Buscar por nome ou e-mail..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-11 bg-[#121622]/90 border-white/5 h-11 text-sm rounded-xl text-white"
+            />
+            <Icon
+              name="Search"
+              className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+          </div>
+
+          <Button
+            onClick={() => setIsGeneralFiadoOpen(true)}
+            className="gap-2 h-11 px-5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500 hover:text-slate-950 text-xs font-extrabold uppercase tracking-wider transition-all"
+          >
+            <Icon name="BookOpen" className="w-4 h-4" /> Caderninho Geral (R${" "}
+            {totalFiadoDebtGeral.toFixed(2)})
+          </Button>
+
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="gap-2 h-11 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-extrabold text-xs uppercase tracking-wider shadow-[0_4px_20px_rgba(245,158,11,0.25)]"
+          >
+            <Icon name="UserPlus" className="w-4 h-4" /> Novo Cliente
+          </Button>
+        </div>
+      </header>
+
+      {/* Client Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        {sortedClients.length > 0 ? (
+          sortedClients.map((client) => {
+            const clientApps = appointments.filter(
+              (a) => a.clientId === client.id
+            );
+            const completedApps = clientApps.filter(
+              (a) => a.status === "concluido"
+            );
+
+            // Fiado debt calculation for this client
+            const clientFiadoApps = clientApps.filter(
+              (a) =>
+                a.isFiado ||
+                a.paymentStatus === "fiado" ||
+                a.paymentMethod === "fiado"
+            );
+            const clientPendingFiado = clientFiadoApps.filter(
+              (a) => !a.fiadoPaid && a.paymentStatus !== "pago"
+            );
+            const clientFiadoDebt = clientPendingFiado.reduce(
+              (acc, a) => acc + (a.price || 0),
+              0
+            );
+
+            const lastApp = completedApps.sort((a, b) => {
+              const dateA =
+                a.date && a.time ? `${a.date} ${a.time}` : a.date || "";
+              const dateB =
+                b.date && b.time ? `${b.date} ${b.time}` : b.date || "";
+              return new Date(dateB).getTime() - new Date(dateA).getTime();
+            })[0];
+
+            const lastVisitDate =
+              lastApp && lastApp.date
+                ? lastApp.date.split("-").reverse().join("/")
+                : "Nunca";
+            const isBlocked = client.blocked;
+
+            return (
+              <div
+                key={client.id}
+                className={`amber-glow-card relative overflow-hidden p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between ${
+                  clientFiadoDebt > 0 ? "border-amber-500/40" : ""
+                }`}
+              >
+                {/* Background glow */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-bl-[80px] pointer-events-none" />
+
                 <div>
-                    <h1 className="text-3xl font-semibold mb-1">
-                        Gestão de <span className="text-[#D4AF37]">Clientes</span>
-                    </h1>
-                    <p className="text-gray-400 text-sm">Base de dados e histórico de fidelidade</p>
-                </div>
-                <div className="flex gap-4 w-full md:w-auto">
-                    <div className="relative flex-1 md:w-80">
-                        <Input
-                            placeholder="Buscar por nome ou e-mail..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-12 bg-[#111111] border-[#1f1f1f] h-12 rounded-2xl"
-                        />
-                        <Icon name="Search" className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                  {/* Top Row Header */}
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-12 h-12 rounded-xl bg-slate-900 border flex items-center justify-center text-xl font-extrabold shrink-0 shadow-inner ${
+                          isBlocked
+                            ? "text-red-400 border-red-500/30"
+                            : "text-amber-400 border-amber-500/30"
+                        }`}
+                      >
+                        {client.name?.[0] || "?"}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-extrabold text-white text-sm tracking-tight truncate">
+                          {client.name}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                          {client.email || client.phone || "Sem e-mail"}
+                        </p>
+                      </div>
                     </div>
-                    <Button onClick={() => setIsModalOpen(true)} className="gap-2 h-12 rounded-2xl shadow-lg shadow-[#D4AF37]/10">
-                        <Icon name="UserPlus" className="w-4 h-4" /> Novo Cliente
-                    </Button>
+
+                    {isBlocked && (
+                      <span className="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-md text-[9px] font-extrabold uppercase shrink-0">
+                        Bloqueado
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Fiado Badge Alert */}
+                  {clientFiadoDebt > 0 ? (
+                    <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                        <Icon name="BookOpen" className="w-3.5 h-3.5" /> FIADO
+                        PENDENTE
+                      </span>
+                      <span className="text-xs font-extrabold text-white bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30">
+                        R$ {clientFiadoDebt.toFixed(2)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="mb-4 p-2 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                      <span>Sem débitos em fiado</span>
+                      <span className="text-emerald-400 font-bold">EM DIA</span>
+                    </div>
+                  )}
+
+                  {/* Visit Stats */}
+                  <div className="space-y-2 mb-6 text-xs text-slate-400 border-t border-b border-white/5 py-3">
+                    <div className="flex justify-between items-center">
+                      <span>Última Visita</span>
+                      <span className="text-white font-semibold">
+                        {lastVisitDate}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Total de Cortes</span>
+                      <span className="text-amber-400 font-extrabold">
+                        {completedApps.length}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-            </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {sortedClients.length > 0 ? sortedClients.map((client) => {
-                    const clientApps = appointments.filter(a => a.clientId === client.id);
-                    const completedApps = clientApps.filter(a => a.status === 'concluido');
-                    const lastApp = completedApps
-                        .sort((a, b) => {
-                            const dateA = a.date && a.time ? `${a.date} ${a.time}` : (a.date || '');
-                            const dateB = b.date && b.time ? `${b.date} ${b.time}` : (b.date || '');
-                            return new Date(dateB).getTime() - new Date(dateA).getTime();
-                        })[0];
-                    
-                    const lastVisitDate = lastApp && lastApp.date ? lastApp.date.split('-').reverse().join('/') : 'Nunca';
-                    const isBlocked = client.blocked;
+                {/* Bottom Action Buttons */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => handleViewFiado(client)}
+                    className="col-span-1 h-10 px-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-[0_4px_14px_rgba(245,158,11,0.35)] hover:from-amber-300 hover:to-amber-400 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Icon name="BookOpen" className="w-3.5 h-3.5 shrink-0" />
+                    <span>FIADO</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleViewHistory(client)}
+                    className="col-span-1 h-10 px-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-[11px] font-bold uppercase tracking-wider hover:border-amber-500/50 hover:bg-slate-800 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Icon name="History" className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                    <span>HISTÓRICO</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleBlock(client)}
+                    className={`col-span-1 h-10 px-2 rounded-xl text-[11px] font-bold uppercase tracking-wider border transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                      isBlocked
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500 hover:text-slate-950"
+                        : "bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500 hover:text-white"
+                    }`}
+                  >
+                    <Icon name={isBlocked ? "CheckCircle" : "Ban"} className="w-3.5 h-3.5 shrink-0" />
+                    <span>{isBlocked ? "ATIVAR" : "BLOQUEAR"}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="col-span-full py-16 text-center text-slate-500 italic border border-dashed border-slate-800 rounded-2xl">
+            Nenhum cliente encontrado.
+          </div>
+        )}
+      </div>
 
+      {/* --- MODAL CADERNINHO DO FIADO (INDIVIDUAL) --- */}
+      {isFiadoModalOpen && selectedClientForFiado && (() => {
+        const clientApps = appointments.filter(
+          (a) => a.clientId === selectedClientForFiado.id
+        );
+        const fiadoApps = clientApps.filter(
+          (a) =>
+            a.isFiado ||
+            a.paymentStatus === "fiado" ||
+            a.paymentMethod === "fiado"
+        );
+        const pendingApps = fiadoApps.filter(
+          (a) => !a.fiadoPaid && a.paymentStatus !== "pago"
+        );
+        const totalPendingDebt = pendingApps.reduce(
+          (acc, a) => acc + (a.price || 0),
+          0
+        );
+
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setIsFiadoModalOpen(false)}
+            />
+            <div className="relative w-full max-w-2xl bg-[#0d111a] border border-white/10 rounded-2xl p-6 md:p-8 shadow-2xl animate-fade-in-up flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                    <Icon name="BookOpen" className="w-5 h-5 text-amber-400" />{" "}
+                    Caderninho do Fiado
+                  </h2>
+                  <p className="text-xs text-amber-400 font-bold uppercase tracking-wider mt-0.5">
+                    Cliente: {selectedClientForFiado.name}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsFiadoModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800"
+                >
+                  <Icon name="X" className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Debt Summary Banner */}
+              <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-600/10 border border-amber-500/30 flex items-center justify-between">
+                <div>
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider block">
+                    Saldo Devedor Em Fiado
+                  </span>
+                  <span className="text-2xl font-black text-amber-400">
+                    R$ {totalPendingDebt.toFixed(2)}
+                  </span>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold border border-amber-500/30">
+                  {pendingApps.length} corte(s) pendente(s)
+                </span>
+              </div>
+
+              {/* Form Lançar Novo Fiado Manual */}
+              <form
+                onSubmit={handleAddManualFiadoSubmit}
+                className="mb-6 p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-3"
+              >
+                <span className="text-xs font-bold text-slate-300 block uppercase tracking-wider">
+                  + Lançar Novo Corte / Serviço Fiado
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Input
+                    placeholder="Serviço (ex: Corte + Barba)"
+                    value={manualFiadoService}
+                    onChange={(e) => setManualFiadoService(e.target.value)}
+                    className="bg-slate-950 border-slate-800 text-xs h-10 rounded-lg text-white"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Valor R$ (ex: 50.00)"
+                    value={manualFiadoPrice}
+                    onChange={(e) => setManualFiadoPrice(e.target.value)}
+                    className="bg-slate-950 border-slate-800 text-xs h-10 rounded-lg text-white"
+                  />
+                  <Button
+                    type="submit"
+                    className="h-10 text-xs font-extrabold uppercase bg-amber-500 text-slate-950 rounded-lg hover:bg-amber-400"
+                  >
+                    Registrar no Fiado
+                  </Button>
+                </div>
+              </form>
+
+              {/* Fiado Entries Table/List */}
+              <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                  Histórico de Fiados Registrados
+                </span>
+                {fiadoApps.length > 0 ? (
+                  fiadoApps.map((app) => {
+                    const isPaid = app.fiadoPaid || app.paymentStatus === "pago";
                     return (
-                        <div key={client.id} className={`bg-[#111111] border ${isBlocked ? 'border-red-500/20 bg-red-950/5' : 'border-[#1f1f1f]'} p-8 rounded-[32px] hover:border-[#D4AF37]/30 transition-all group relative overflow-hidden`}>
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-[#D4AF37]/5 rounded-bl-[80px] group-hover:bg-[#D4AF37]/10 transition-all pointer-events-none" />
-
-                            <div className="flex items-center gap-5 mb-8">
-                                <div className={`w-14 h-14 rounded-2xl bg-[#0a0a0a] border border-[#1f1f1f] flex items-center justify-center text-2xl font-black group-hover:bg-[#D4AF37] group-hover:text-black transition-all ${isBlocked ? 'text-red-500 border-red-500/20' : 'text-[#D4AF37]'}`}>
-                                    {client.name?.[0] || '?'}
-                                </div>
-                                <div>
-                                    <div className="flex flex-col gap-1">
-                                        <h3 className="font-bold text-white tracking-tight leading-tight">{client.name}</h3>
-                                        {isBlocked && (
-                                            <span className="w-fit px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-md text-[8px] font-black uppercase tracking-widest">
-                                                Bloqueado
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1.5 truncate max-w-[150px]">{client.email || 'Sem e-mail'}</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 mb-8">
-                                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-gray-500">
-                                    <span>Última Visita</span>
-                                    <span className="text-gray-300">{lastVisitDate}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-gray-500">
-                                    <span>Total Visitas</span>
-                                    <span className="text-[#D4AF37] font-bold text-base">{completedApps.length}</span>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <Button 
-                                    onClick={() => handleViewHistory(client)}
-                                    variant="outline" 
-                                    className="flex-1 text-[9px] h-11 uppercase tracking-[0.1em] font-black rounded-xl border-[#1f1f1f] hover:border-[#D4AF37]/50 hover:text-[#D4AF37]"
-                                >
-                                    Histórico
-                                </Button>
-                                <Button 
-                                    onClick={() => handleToggleBlock(client)}
-                                    variant="outline" 
-                                    className={`flex-1 text-[9px] h-11 uppercase tracking-[0.1em] font-black rounded-xl border-[#1f1f1f] ${isBlocked ? 'text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/30' : 'text-red-400 hover:text-red-300 hover:border-red-500/30'}`}
-                                >
-                                    {isBlocked ? 'Ativar' : 'Bloquear'}
-                                </Button>
-                            </div>
+                      <div
+                        key={app.id}
+                        className="bg-slate-900/60 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between gap-4 hover:border-amber-500/20 transition-all"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-lg bg-slate-950 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold shrink-0">
+                            <Icon name="Scissors" className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-white text-xs truncate">
+                              {app.serviceName}
+                            </h4>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {app.date.split("-").reverse().join("/")} às{" "}
+                              {app.time} • Barbeiro: {app.barberName}
+                            </p>
+                          </div>
                         </div>
+
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                          <span className="text-sm font-black text-amber-400">
+                            R$ {app.price.toFixed(2)}
+                          </span>
+                          {isPaid ? (
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              ✓ PAGO / QUITADO
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSettleFiado(app.id)}
+                              className="px-3 py-1 rounded-md text-[10px] font-extrabold uppercase bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-sm transition-all"
+                            >
+                              Dar Baixa (Quitar)
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     );
-                }) : (
-                    <div className="col-span-full py-20 text-center text-gray-600 italic">
-                        <p>Nenhum cliente cadastrado ainda.</p>
-                    </div>
+                  })
+                ) : (
+                  <div className="py-8 text-center text-slate-500 text-xs italic border border-dashed border-slate-800 rounded-xl">
+                    Nenhum fiado pendente para este cliente.
+                  </div>
                 )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* --- MODAL CADERNINHO GERAL DO FIADO (TODOS OS CLIENTES) --- */}
+      {isGeneralFiadoOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setIsGeneralFiadoOpen(false)}
+          />
+          <div className="relative w-full max-w-3xl bg-[#0d111a] border border-white/10 rounded-2xl p-6 md:p-8 shadow-2xl animate-fade-in-up flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
+              <div>
+                <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                  <Icon name="BookOpen" className="w-5 h-5 text-amber-400" />{" "}
+                  Caderninho Geral de Fiados
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Lista completa de débitos a receber da barbearia
+                </p>
+              </div>
+              <button
+                onClick={() => setIsGeneralFiadoOpen(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800"
+              >
+                <Icon name="X" className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* Novo Cliente Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-                    <div className="relative w-full max-w-md bg-[#111111] border border-[#1f1f1f] rounded-[40px] p-10 shadow-2xl animate-fade-in-up">
-                        <header className="flex justify-between items-center mb-8">
-                            <h2 className="text-2xl font-bold tracking-tighter italic">Novo Cliente</h2>
-                            <button onClick={() => setIsModalOpen(false)}><Icon name="X" className="w-6 h-6 text-gray-500" /></button>
-                        </header>
-                        <form onSubmit={handleAddClient} className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">Nome Completo</label>
-                                <Input
-                                    value={newClient.name}
-                                    onChange={e => setNewClient({ ...newClient, name: e.target.value })}
-                                    className="bg-[#1a1a1a] border-transparent h-14 rounded-2xl"
-                                    placeholder="Ex: Roberto Carlos"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-2">E-mail</label>
-                                <Input
-                                    value={newClient.email}
-                                    onChange={e => setNewClient({ ...newClient, email: e.target.value })}
-                                    className="bg-[#1a1a1a] border-transparent h-14 rounded-2xl"
-                                    placeholder="email@exemplo.com"
-                                />
-                            </div>
-                            <Button type="submit" className="w-full h-14 bg-[#D4AF37] text-black font-black uppercase tracking-widest rounded-2xl mt-4">Cadastrar</Button>
-                        </form>
+            <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-slate-400 uppercase font-medium">
+                  Total Geral a Receber
+                </span>
+                <span className="text-2xl font-black text-amber-400 block">
+                  R$ {totalFiadoDebtGeral.toFixed(2)}
+                </span>
+              </div>
+              <span className="text-xs font-bold text-amber-400 bg-amber-500/20 px-3 py-1 rounded-full border border-amber-500/30">
+                {pendingFiados.length} fiado(s) pendente(s)
+              </span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">
+              {pendingFiados.length > 0 ? (
+                pendingFiados.map((app) => (
+                  <div
+                    key={app.id}
+                    className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex items-center justify-between gap-4 hover:border-amber-500/30 transition-all"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-slate-950 border border-amber-500/30 text-amber-400 font-bold flex items-center justify-center shrink-0">
+                        {app.clientName?.[0] || "?"}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-extrabold text-white text-sm truncate">
+                          {app.clientName}
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {app.serviceName} • {app.date.split("-").reverse().join("/")}
+                        </p>
+                      </div>
                     </div>
+
+                    <div className="text-right shrink-0 flex items-center gap-4">
+                      <span className="text-base font-black text-amber-400">
+                        R$ {app.price.toFixed(2)}
+                      </span>
+                      <button
+                        onClick={() => handleSettleFiado(app.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-extrabold uppercase bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-sm transition-all"
+                      >
+                        Quitar Fiado
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-slate-500 text-xs italic border border-dashed border-slate-800 rounded-xl">
+                  Nenhum fiado pendente registrado no momento. Todos os clientes estão em dia!
                 </div>
-            )}
-
-            {/* History Modal */}
-            {isHistoryModalOpen && selectedClientForHistory && (() => {
-                const clientApps = appointments
-                    .filter(a => a.clientId === selectedClientForHistory.id)
-                    .sort((a, b) => {
-                        const dateA = a.date && a.time ? `${a.date} ${a.time}` : (a.date || '');
-                        const dateB = b.date && b.time ? `${b.date} ${b.time}` : (b.date || '');
-                        return new Date(dateB).getTime() - new Date(dateA).getTime();
-                    });
-                
-                const completedApps = clientApps.filter(a => a.status === 'concluido');
-                const totalSpent = completedApps.reduce((acc, app) => acc + app.price, 0);
-
-                return (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <div className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setIsHistoryModalOpen(false)} />
-                        <div className="relative w-full max-w-2xl bg-[#111111] border border-[#1f1f1f] rounded-[40px] p-8 md:p-10 shadow-2xl animate-fade-in-up flex flex-col max-h-[85vh] overflow-hidden">
-                            <header className="flex justify-between items-center mb-6 shrink-0">
-                                <div>
-                                    <h2 className="text-2xl font-bold tracking-tighter italic">Histórico do Cliente</h2>
-                                    <p className="text-[#D4AF37] text-xs font-bold uppercase tracking-widest mt-1">{selectedClientForHistory.name}</p>
-                                </div>
-                                <button onClick={() => setIsHistoryModalOpen(false)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-                                    <Icon name="X" className="w-6 h-6 text-gray-500" />
-                                </button>
-                            </header>
-
-                            {/* Stats Summary */}
-                            <div className="grid grid-cols-2 gap-4 mb-6 shrink-0 bg-black/40 border border-[#1f1f1f] p-5 rounded-2xl">
-                                <div>
-                                    <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Total de Visitas Concluídas</p>
-                                    <p className="text-2xl font-black text-white mt-1">{completedApps.length}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest">Total Gasto (R$)</p>
-                                    <p className="text-2xl font-black text-[#D4AF37] mt-1">R$ {totalSpent.toFixed(2)}</p>
-                                </div>
-                            </div>
-
-                            {/* Appointments List */}
-                            <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-thin scrollbar-thumb-zinc-800">
-                                {clientApps.length > 0 ? clientApps.map((app) => {
-                                    const { day, month } = parseDateSafely(app.date);
-                                    return (
-                                        <div key={app.id} className="bg-black/35 border border-[#1f1f1f] p-5 rounded-2xl flex items-center justify-between gap-4 hover:border-white/5 transition-all">
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-center w-12 border-r border-[#1f1f1f] pr-4 shrink-0">
-                                                    <p className="text-lg font-black text-white">{day}</p>
-                                                    <p className="text-[9px] text-gray-500 uppercase font-black">
-                                                        {month}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-sm text-gray-100">{app.serviceName}</p>
-                                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">
-                                                        Profissional: <span className="text-[#D4AF37]">{app.barberName}</span>
-                                                    </p>
-                                                    <p className="text-[9px] text-gray-600 mt-1">{app.time}</p>
-                                                </div>
-                                            </div>
-                                            <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                                                <span className="text-sm font-black text-[#D4AF37]">R$ {app.price.toFixed(2)}</span>
-                                                <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${
-                                                    app.status === 'concluido' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                    app.status === 'cancelado' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                    app.status === 'agendado' || app.status === 'confirmado' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
-                                                    'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                                }`}>
-                                                    {app.status}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    );
-                                }) : (
-                                    <div className="py-12 text-center text-gray-600 italic">
-                                        <p>Nenhum agendamento encontrado para este cliente.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
+              )}
+            </div>
+          </div>
         </div>
-    );
+      )}
+
+      {/* History Modal */}
+      {isHistoryModalOpen && selectedClientForHistory && (() => {
+        const clientApps = appointments
+          .filter((a) => a.clientId === selectedClientForHistory.id)
+          .sort((a, b) => {
+            const dateA =
+              a.date && a.time ? `${a.date} ${a.time}` : a.date || "";
+            const dateB =
+              b.date && b.time ? `${b.date} ${b.time}` : b.date || "";
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+          });
+
+        const completedApps = clientApps.filter((a) => a.status === "concluido");
+        const totalSpent = completedApps.reduce((acc, app) => acc + app.price, 0);
+
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setIsHistoryModalOpen(false)}
+            />
+            <div className="relative w-full max-w-2xl bg-[#0d111a] border border-white/10 rounded-2xl p-6 md:p-8 shadow-2xl animate-fade-in-up flex flex-col max-h-[85vh]">
+              <header className="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white tracking-tight">
+                    Histórico do Cliente
+                  </h2>
+                  <p className="text-amber-400 text-xs font-bold uppercase tracking-wider mt-0.5">
+                    {selectedClientForHistory.name}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsHistoryModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800"
+                >
+                  <Icon name="X" className="w-5 h-5" />
+                </button>
+              </header>
+
+              <div className="grid grid-cols-2 gap-4 mb-6 bg-slate-900/60 border border-slate-800 p-4 rounded-xl">
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                    Visitas Concluídas
+                  </p>
+                  <p className="text-2xl font-black text-white mt-0.5">
+                    {completedApps.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                    Total Gasto (R$)
+                  </p>
+                  <p className="text-2xl font-black text-amber-400 mt-0.5">
+                    R$ {totalSpent.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 no-scrollbar pr-1">
+                {clientApps.length > 0 ? (
+                  clientApps.map((app) => {
+                    const { day, month } = parseDateSafely(app.date);
+                    return (
+                      <div
+                        key={app.id}
+                        className="bg-slate-900/60 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-center w-11 border-r border-slate-800 pr-3 shrink-0">
+                            <p className="text-base font-extrabold text-white">
+                              {day}
+                            </p>
+                            <p className="text-[9px] text-amber-400 font-bold uppercase">
+                              {month}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm text-white">
+                              {app.serviceName}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-medium">
+                              Profissional: {app.barberName} • {app.time}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                          <span className="text-sm font-black text-amber-400">
+                            R$ {app.price.toFixed(2)}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase ${
+                              app.status === "concluido"
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : "bg-slate-800 text-slate-400"
+                            }`}
+                          >
+                            {app.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-8 text-center text-slate-500 text-xs italic">
+                    Nenhum agendamento registrado.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* --- MODAL NOVO CLIENTE --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setIsModalOpen(false)}
+          />
+          <div className="relative w-full max-w-md bg-[#0d111a] border border-white/10 rounded-2xl p-6 shadow-2xl animate-fade-in-up">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
+              <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
+                <Icon name="UserPlus" className="w-5 h-5 text-amber-400" /> Novo Cliente
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg bg-slate-900 border border-slate-800"
+              >
+                <Icon name="X" className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddClient} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1 uppercase tracking-wider">
+                  Nome Completo do Cliente *
+                </label>
+                <Input
+                  required
+                  placeholder="Ex: João da Silva"
+                  value={newClient.name}
+                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                  className="bg-slate-900 border-slate-800 text-xs h-11 rounded-xl text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1 uppercase tracking-wider">
+                  Telefone / WhatsApp
+                </label>
+                <Input
+                  placeholder="Ex: (89) 99999-9999"
+                  value={newClient.phone}
+                  onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
+                  className="bg-slate-900 border-slate-800 text-xs h-11 rounded-xl text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 block mb-1 uppercase tracking-wider">
+                  E-mail (Opcional)
+                </label>
+                <Input
+                  type="email"
+                  placeholder="Ex: joao@gmail.com"
+                  value={newClient.email}
+                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                  className="bg-slate-900 border-slate-800 text-xs h-11 rounded-xl text-white"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  variant="outline"
+                  className="flex-1 h-11 rounded-xl border-slate-800 text-xs font-bold"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 h-11 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-extrabold text-xs uppercase tracking-wider shadow-md"
+                >
+                  Cadastrar Cliente
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

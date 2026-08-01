@@ -5,12 +5,15 @@ export const metadata: Metadata = {
   title: "MarcielBarberShop",
   description: "Sistema de Gestão e Agendamento Premium para Barbearias",
   manifest: "/manifest.json",
-  themeColor: "#0a0a0a",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Marciel Barber",
   },
+};
+
+export const viewport = {
+  themeColor: "#080a0f",
 };
 
 import { BarberProvider } from "@/context/BarberContext";

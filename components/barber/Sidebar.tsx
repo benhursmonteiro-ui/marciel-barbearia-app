@@ -73,67 +73,67 @@ export default function BarberSidebar({ isOpen, onClose }: { isOpen: boolean; on
                 />
             )}
 
-            <aside 
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                className={`
-                fixed top-0 left-0 h-full w-72 bg-[var(--color-dark-card)] border-r border-[var(--color-dark-border)] z-50
-                transition-transform duration-500 ease-out
-                ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-            `}>
-                <div className="flex flex-col h-full p-8 overflow-y-auto no-scrollbar">
-                    {/* Header/Logo */}
-                    <div className="flex items-center gap-4 mb-12">
-                        <div className="w-12 h-12 bg-black border border-[var(--color-primary-gold)] rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.1)]">
-                            <Scissors className="text-[var(--color-primary-gold)] w-6 h-6" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold tracking-tight text-white leading-none">Marciel</h2>
-                            <p className="text-[var(--color-primary-gold)] text-[9px] font-black uppercase tracking-[0.3em] mt-1">Barber Area</p>
-                        </div>
-                        <button onClick={onClose} className="ml-auto lg:hidden text-gray-500 hover:text-white">
-                            <X size={24} />
-                        </button>
+        <aside 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            className={`
+            fixed top-0 left-0 h-full w-72 bg-[#0d111a] border-r border-white/5 z-50
+            transition-transform duration-500 ease-out
+            ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
+            <div className="flex flex-col h-full p-6 overflow-y-auto no-scrollbar">
+                {/* Header/Logo */}
+                <div className="flex items-center gap-3.5 mb-10 pb-6 border-b border-white/5">
+                    <div className="w-11 h-11 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.35)] shrink-0">
+                        <Scissors className="w-6 h-6 stroke-[2.5]" />
                     </div>
-
-                    {/* Nav Items */}
-                    <nav className="flex-1 space-y-2">
-                        {finalMenuItems.map((item) => {
-                            const isActive = pathname === item.href;
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    onClick={() => onClose()}
-                                    className={`
-                                        flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-300 group
-                                        ${isActive
-                                            ? 'bg-[var(--color-primary-gold)] text-black font-bold shadow-[0_10px_20px_rgba(212,175,55,0.15)]'
-                                            : 'text-gray-400 hover:text-white hover:bg-white/5'}
-                                    `}
-                                >
-                                    <span className={`transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-black' : 'text-[var(--color-primary-gold)]'}`}>
-                                        {item.icon}
-                                    </span>
-                                    <span className="text-sm tracking-wide">{item.label}</span>
-                                    {isActive && <div className="ml-auto w-1.5 h-1.5 bg-black rounded-full" />}
-                                </Link>
-                            );
-                        })}
-                    </nav>
-
-                    {/* Footer / Logout */}
-                    <div className="pt-8 border-t border-white/5">
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center gap-4 w-full px-5 py-4 text-red-500 hover:bg-red-500/10 rounded-2xl transition-all group"
-                        >
-                            <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
-                            <span className="text-sm font-bold tracking-widest uppercase">Sair do Painel</span>
-                        </button>
+                    <div>
+                        <h2 className="text-lg font-black tracking-tight text-white leading-none">Marciel</h2>
+                        <p className="text-amber-400 text-[10px] font-black uppercase tracking-[0.25em] mt-1">Barber Manager</p>
                     </div>
+                    <button onClick={onClose} className="ml-auto lg:hidden text-slate-400 hover:text-white">
+                        <X size={22} />
+                    </button>
                 </div>
-            </aside>
+
+                {/* Nav Items */}
+                <nav className="flex-1 space-y-1.5">
+                    {finalMenuItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => onClose()}
+                                className={`
+                                    flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all duration-300 group font-medium text-sm
+                                    ${isActive
+                                        ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.25)]'
+                                        : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'}
+                                `}
+                            >
+                                <span className={`transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-slate-950' : 'text-amber-400'}`}>
+                                    {item.icon}
+                                </span>
+                                <span className="tracking-wide">{item.label}</span>
+                                {isActive && <div className="ml-auto w-2 h-2 bg-slate-950 rounded-full" />}
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {/* Footer / Logout */}
+                <div className="pt-6 border-t border-white/5 mt-auto">
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-3.5 w-full px-4 py-3.5 text-red-400 hover:bg-red-500/10 rounded-xl transition-all font-bold text-xs uppercase tracking-widest group"
+                    >
+                        <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
+                        <span>Sair do Painel</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
         </>
     );
 }

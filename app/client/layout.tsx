@@ -68,10 +68,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     };
 
     return (
-        <div className="flex min-h-screen bg-[var(--color-dark-bg)] text-white font-sans">
+        <div className="flex min-h-screen bg-[#080a0f] text-slate-100 font-sans">
             {/* Mobile sidebar overlay */}
             <div
-                className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-500 md:hidden ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-40 transition-opacity duration-500 md:hidden ${sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={() => setSidebarOpen(false)}
             />
 
@@ -79,7 +79,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             <aside
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
-                className={`fixed z-50 inset-y-0 left-0 w-72 transform bg-[var(--color-dark-card)] border-r border-[var(--color-dark-border)] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${sidebarOpen ? 'translate-x-0 shadow-[0_0_50px_rgba(0,0,0,0.5)]' : '-translate-x-full'} md:translate-x-0 md:static overflow-y-auto no-scrollbar`}
+                className={`fixed z-50 inset-y-0 left-0 w-72 transform bg-[#0d111a] border-r border-white/5 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${sidebarOpen ? 'translate-x-0 shadow-[0_0_50px_rgba(0,0,0,0.5)]' : '-translate-x-full'} md:translate-x-0 md:static overflow-y-auto no-scrollbar`}
             >
                 <Sidebar />
             </aside>
@@ -87,38 +87,38 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             {/* Main content */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Header */}
-                <header className="sticky top-0 z-30 flex items-center justify-between p-4 md:px-8 border-b border-[var(--color-dark-border)] bg-[var(--color-dark-bg)]/80 backdrop-blur-md">
+                <header className="sticky top-0 z-30 flex items-center justify-between p-4 md:px-8 border-b border-white/5 bg-[#080a0f]/90 backdrop-blur-xl">
                     <div className="flex items-center gap-4">
                         <button
-                            className="p-2 -ml-2 text-gray-400 hover:text-[var(--color-primary-gold)] md:hidden transition-colors"
+                            className="p-2 -ml-2 text-slate-400 hover:text-amber-400 md:hidden transition-colors rounded-xl bg-slate-900/60 border border-slate-800"
                             onClick={() => setSidebarOpen(true)}
                         >
-                            <Menu className="w-6 h-6" />
+                            <Menu className="w-5 h-5" />
                         </button>
                         <div>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-primary-gold)] font-bold">Área do Cliente</p>
-                            <h2 className="text-sm font-medium text-white/60">Bem-vindo(a), {currentUser?.name?.split(' ')[0] || 'Cliente'}</h2>
+                            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Área do Cliente</p>
+                            <h2 className="text-sm font-bold text-white">Bem-vindo(a), {currentUser?.name?.split(' ')[0] || 'Cliente'}</h2>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 md:gap-4">
-                        <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
-                            <Bell className="w-5 h-5" />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-[var(--color-primary-gold)] rounded-full shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
+                    <div className="flex items-center gap-3 md:gap-4">
+                        <button className="relative p-2.5 text-slate-400 hover:text-white bg-[#121622]/80 hover:bg-[#161c2b] border border-white/5 rounded-xl transition-colors group">
+                            <Bell className="w-4 h-4" />
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />
                         </button>
-                        <div className="flex items-center gap-3 pl-2 border-l border-[var(--color-dark-border)]">
+                        <div className="flex items-center gap-3 pl-3 border-l border-white/5">
                             <div className="hidden md:block text-right">
-                                <p className="text-xs font-bold text-white">{currentUser?.name || "Carlos Silva"}</p>
-                                <p className="text-[10px] text-gray-500">Membro Premium</p>
+                                <p className="text-xs font-bold text-white">{currentUser?.name || "Cliente"}</p>
+                                <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Membro VIP</p>
                             </div>
-                            <div className="w-9 h-9 border border-[var(--color-primary-gold)]/30 rounded-full flex items-center justify-center bg-white/5 overflow-hidden">
-                                {currentUser?.photo ? <img src={currentUser.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-[var(--color-primary-gold)]" />}
+                            <div className="w-9 h-9 border border-amber-500/30 rounded-xl flex items-center justify-center bg-slate-900 overflow-hidden text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+                                {currentUser?.photo ? <img src={currentUser.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-amber-400" />}
                             </div>
                         </div>
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-x-hidden overflow-y-auto custom-scrollbar">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar">
                     <div className="max-w-7xl mx-auto py-6 px-4 md:px-8">
                         {children}
                     </div>

@@ -42,18 +42,22 @@ export default function Sidebar() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-[var(--color-dark-card)] overflow-hidden">
+        <div className="flex flex-col h-full bg-[#0d111a] border-r border-white/5 overflow-hidden">
             {/* Logo area */}
-            <div className="p-8 mb-4">
-                <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 bg-black border border-[var(--color-primary-gold)] rounded-full flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(212,175,55,0.1)]">
-                        <Scissors className="text-[var(--color-primary-gold)] w-6 h-6" strokeWidth={1.5} />
+            <div className="p-6 mb-2 border-b border-white/5">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.3)] shrink-0">
+                        <Scissors className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                    <div>
+                        <h2 className="text-base font-extrabold tracking-tight text-white leading-none">Marciel</h2>
+                        <p className="text-amber-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Área do Cliente</p>
                     </div>
                 </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
+            <nav className="flex-1 px-4 py-3 space-y-1.5 overflow-y-auto no-scrollbar">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     const Icon = item.icon;
@@ -61,55 +65,55 @@ export default function Sidebar() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${isActive
-                                ? 'bg-[var(--color-primary-gold-dim)] text-[var(--color-primary-gold)] border border-[var(--color-primary-gold)]/20 shadow-[0_0_20px_rgba(212,175,55,0.05)]'
-                                : 'text-gray-500 hover:text-white hover:bg-white/5'
+                            className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 group ${isActive
+                                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.25)]'
+                                : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                                 }`}
                         >
-                            <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-                            <span className={`text-sm font-medium tracking-wide ${isActive ? 'font-bold' : ''}`}>{item.label}</span>
+                            <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-slate-950 scale-105' : 'text-amber-400 group-hover:scale-110'}`} />
+                            <span className="text-sm tracking-wide">{item.label}</span>
                         </Link>
                     );
                 })}
             </nav>
 
             {/* Support section */}
-            <div className="px-6 mb-4">
-                <div className="bg-black/20 border border-white/5 rounded-2xl p-4">
-                    <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-3">Precisa de ajuda?</p>
-                    <div className="flex flex-col gap-2">
+            <div className="px-4 mb-3">
+                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mb-2">Precisa de ajuda?</p>
+                    <div className="flex flex-col gap-1.5">
                         {(() => {
-                            const waPhone = shopConfig.whatsapp.replace(/\D/g, '');
+                            const waPhone = shopConfig?.whatsapp ? shopConfig.whatsapp.replace(/\D/g, '') : '';
                             const finalWa = (waPhone.length >= 12 && waPhone.startsWith('55')) ? waPhone : `55${waPhone}`;
                             return (
                                 <a 
                                     href={`https://wa.me/${finalWa}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-3 text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors"
+                                    className="flex items-center gap-2 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition-colors"
                                 >
-                                    <MessageSquare className="w-3 h-3" /> WHATSAPP
+                                    <MessageSquare className="w-3.5 h-3.5" /> WhatsApp Suporte
                                 </a>
                             );
                         })()}
                         <a 
-                            href={`tel:${shopConfig.phone}`}
-                            className="flex items-center gap-3 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                            href={`tel:${shopConfig?.phone || ''}`}
+                            className="flex items-center gap-2 text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
                         >
-                            <Phone className="w-3 h-3" /> LIGAR
+                            <Phone className="w-3.5 h-3.5" /> Ligar para a Barbearia
                         </a>
                     </div>
                 </div>
             </div>
 
             {/* Logout/Footer */}
-            <div className="p-4 mt-auto border-t border-[var(--color-dark-border)]">
+            <div className="p-4 border-t border-white/5 mt-auto">
                 <button
                     onClick={handleLogout}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-500/10 transition-all duration-300 group text-left"
+                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-all font-bold text-xs uppercase tracking-widest group"
                 >
-                    <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                    <span className="text-sm font-medium">Sair da Conta</span>
+                    <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                    <span>Sair da Conta</span>
                 </button>
             </div>
         </div>

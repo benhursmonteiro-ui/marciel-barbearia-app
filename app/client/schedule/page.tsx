@@ -186,7 +186,14 @@ _Confirmado pelo app Marciel Barber Shop_`;
             window.location.href = waLink;
         } catch (error: any) {
             console.error(error);
-            alert(error.message || "Erro ao confirmar agendamento. Tente novamente.");
+            const errStr = error?.message || '';
+            if (errStr.includes('idx_prevent_double_booking') || errStr.includes('duplicate key')) {
+                alert("⚠️ Este horário já foi reservado por outro cliente ou seu agendamento já foi processado!\n\nPor favor, selecione outro horário disponível.");
+                setSelectedTime('');
+                setStep(4);
+            } else {
+                alert(errStr || "Erro ao confirmar agendamento. Tente novamente.");
+            }
         } finally {
             setIsSaving(false);
         }
@@ -236,7 +243,10 @@ _Confirmado pelo app Marciel Barber Shop_`;
                             {services.map((s) => (
                                 <button
                                     key={s.id}
-                                    onClick={() => setSelectedService(s)}
+                                    onClick={() => {
+                                        setSelectedService(s);
+                                        setStep(2);
+                                    }}
                                     className={`group flex items-center justify-between p-5 rounded-2xl border-2 transition-all duration-300 ${selectedService?.id === s.id
                                         ? 'bg-[var(--color-primary-gold-dim)] border-[var(--color-primary-gold)]'
                                         : 'bg-black/40 border-[var(--color-dark-border)] hover:border-white/10'
@@ -272,7 +282,10 @@ _Confirmado pelo app Marciel Barber Shop_`;
                             {barbers.map((b) => (
                                 <button
                                     key={b.id}
-                                    onClick={() => setSelectedBarber(b)}
+                                    onClick={() => {
+                                        setSelectedBarber(b);
+                                        setStep(3);
+                                    }}
                                     className={`group relative overflow-hidden flex flex-col items-center p-6 rounded-3xl border-2 transition-all duration-300 ${selectedBarber?.id === b.id
                                         ? 'bg-[var(--color-primary-gold-dim)] border-[var(--color-primary-gold)] shadow-lg'
                                         : 'bg-black/40 border-[var(--color-dark-border)] hover:border-white/10'
@@ -305,7 +318,10 @@ _Confirmado pelo app Marciel Barber Shop_`;
                         <div className="bg-black/40 border border-[var(--color-dark-border)] rounded-[2.5rem] overflow-hidden shadow-2xl relative">
                             <Calendar
                                 selectedDate={selectedDate}
-                                onDateSelect={(dateStr) => setSelectedDate(dateStr)}
+                                onDateSelect={(dateStr) => {
+                                    setSelectedDate(dateStr);
+                                    setStep(4);
+                                }}
                                 disabledDates={(date) => {
                                     const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
                                     
@@ -351,7 +367,10 @@ _Confirmado pelo app Marciel Barber Shop_`;
                                 <button
                                     key={t}
                                     disabled={taken}
-                                    onClick={() => setSelectedTime(t)}
+                                    onClick={() => {
+                                        setSelectedTime(t);
+                                        setStep(5);
+                                    }}
                                     className={`p-4 rounded-xl border-2 font-bold transition-all ${selectedTime === t
                                         ? 'bg-[var(--color-primary-gold)] border-[var(--color-primary-gold)] text-black shadow-lg'
                                         : taken 

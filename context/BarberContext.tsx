@@ -64,6 +64,8 @@ export interface ShopConfig {
 }
 
 export type AppointmentStatus = 'agendado' | 'confirmado' | 'em atendimento' | 'concluido' | 'cancelado';
+export type PaymentStatus = 'pago' | 'pendente' | 'fiado';
+export type PaymentMethod = 'dinheiro' | 'pix' | 'cartao' | 'fiado';
 
 export interface Appointment {
     id: string;
@@ -78,6 +80,11 @@ export interface Appointment {
     date: string;
     time: string;
     status: AppointmentStatus;
+    paymentStatus?: PaymentStatus;
+    paymentMethod?: PaymentMethod;
+    isFiado?: boolean;
+    fiadoPaid?: boolean;
+    fiadoPaidAt?: string;
     createdAt: string;
 }
 
@@ -183,6 +190,8 @@ interface BarberContextType {
     updateCartQuantity: (productId: string, delta: number) => void;
     addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => Promise<void>;
     addIncome: (income: Omit<Income, 'id' | 'createdAt'>) => Promise<void>;
+    updateAppointmentPayment: (id: string, paymentStatus: PaymentStatus, paymentMethod?: PaymentMethod) => Promise<void>;
+    addFiadoEntry: (clientId: string, clientName: string, serviceName: string, price: number, barberName?: string, date?: string) => Promise<void>;
     resetPassword: (email: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
 }
 
@@ -836,10 +845,93 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                         referenceId: n.referencia_id,
                         createdAt: n.created_at
                     }));
-                    setNotifications(prev => [...mappedNotifs, ...prev]);
                 }
             }
         }
+    };
+
+    const updateAppointmentPayment = async (id: string, paymentStatus: PaymentStatus, paymentMethod?: PaymentMethod) => {
+        const updateData: any = {
+            paymentStatus,
+            paymentMethod,
+            isFiado: paymentStatus === 'fiado' || paymentMethod === 'fiado',
+            fiadoPaid: paymentStatus === 'pago',
+            fiadoPaidAt: paymentStatus === 'pago' ? new Date().toISOString() : undefined
+        };
+
+        // Try updating Supabase if table columns exist, and always update local state
+        try {
+            await supabase
+                .from('agendamentos')
+                .update({
+                    status_pagamento: paymentStatus,
+                    forma_pagamento: paymentMethod,
+                    is_fiado: paymentStatus === 'fiado' || paymentMethod === 'fiado'
+                })
+                .eq('id', id);
+        } catch (e) {
+            console.log('Supabase sync info:', e);
+        }
+
+        setAppointments(prev => prev.map(app => (app.id === id ? {
+            ...app,
+            paymentStatus,
+            paymentMethod,
+            isFiado: paymentStatus === 'fiado' || paymentMethod === 'fiado',
+            fiadoPaid: paymentStatus === 'pago',
+            fiadoPaidAt: paymentStatus === 'pago' ? new Date().toISOString() : undefined
+        } : app)));
+    };
+
+    const addFiadoEntry = async (
+        clientId: string,
+        clientName: string,
+        serviceName: string,
+        price: number,
+        barberName: string = 'Barbearia',
+        date: string = new Date().toISOString().split('T')[0]
+    ) => {
+        const newApp: Appointment = {
+            id: `fiado-${Date.now()}`,
+            clientId,
+            clientName,
+            barberId: barbers[0]?.id || '1',
+            barberName,
+            serviceId: services[0]?.id || '1',
+            serviceName: `Corte Fiado: ${serviceName}`,
+            price,
+            commission: price * 0.5,
+            date,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'concluido',
+            paymentStatus: 'fiado',
+            paymentMethod: 'fiado',
+            isFiado: true,
+            fiadoPaid: false,
+            createdAt: new Date().toISOString()
+        };
+
+        try {
+            await supabase
+                .from('agendamentos')
+                .insert([{
+                    cliente_id: clientId,
+                    barbeiro_id: newApp.barberId,
+                    servico_id: newApp.serviceId,
+                    data: date,
+                    horario: newApp.time,
+                    status: 'concluido',
+                    preco: price,
+                    comissao: newApp.commission,
+                    status_pagamento: 'fiado',
+                    forma_pagamento: 'fiado',
+                    is_fiado: true
+                }]);
+        } catch (e) {
+            console.log('Supabase insert fiado note:', e);
+        }
+
+        setAppointments(prev => [newApp, ...prev]);
     };
 
     const addService = async (data: Omit<Service, 'id'>) => {
@@ -1350,7 +1442,8 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             login, logout, register, addAppointment, updateAppointmentStatus,
             addService, updateService, removeService, addBarber, updateBarber, removeBarber, updateUser, updateShopConfig, resetToSeed,
             addPromotion, updatePromotion, removePromotion, addProduct, updateProduct, removeProduct, loginWithGoogle,
-            addToCart, removeFromCart, clearCart, updateCartQuantity, addExpense, addIncome, markNotificationAsRead, resetPassword
+            addToCart, removeFromCart, clearCart, updateCartQuantity, addExpense, addIncome, markNotificationAsRead, resetPassword,
+            updateAppointmentPayment, addFiadoEntry
         }}>
             {children}
         </BarberContext.Provider>

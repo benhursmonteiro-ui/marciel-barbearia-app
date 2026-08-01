@@ -1,196 +1,269 @@
 "use client";
 
-import React from 'react';
+import React from "react";
 import {
-    CalendarCheck,
-    User,
-    DollarSign,
-    Star,
-    Clock,
-    TrendingUp,
-    ChevronRight,
-    Scissors,
-    AlertCircle,
-    CheckCircle2
-} from 'lucide-react';
-import { Button } from '@/components/ui/Button';
-import Link from 'next/link';
-import { useBarber } from '@/context/BarberContext';
-
-// Reusable Stat Card
-const StatCard = ({ title, value, subtitle, icon, trend }: any) => (
-    <div className="group relative overflow-hidden bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] rounded-[2.5rem] p-8 transition-all duration-500 hover:border-[var(--color-primary-gold)]/30 hover:-translate-y-2">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary-gold)]/5 rounded-full blur-[40px] -mr-16 -mt-16 transition-all duration-700 group-hover:scale-150" />
-
-        <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-black border border-white/5 flex items-center justify-center text-[var(--color-primary-gold)] group-hover:bg-[var(--color-primary-gold)] group-hover:text-black transition-all duration-500">
-                    {icon}
-                </div>
-                {trend && (
-                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-lg">
-                        {trend}
-                    </span>
-                )}
-            </div>
-            <div>
-                <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1 italic">{title}</p>
-                <h3 className="text-3xl font-black text-white mb-1">{value}</h3>
-                <p className="text-[10px] text-gray-400 font-medium">{subtitle}</p>
-            </div>
-        </div>
-    </div>
-);
+  CalendarCheck,
+  User,
+  DollarSign,
+  Star,
+  Clock,
+  TrendingUp,
+  ChevronRight,
+  Scissors,
+  Calendar,
+  Sparkles,
+} from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import Link from "next/link";
+import { useBarber } from "@/context/BarberContext";
+import {
+  StatMetricCard,
+  BarChart,
+  AreaSplineChart,
+} from "@/components/ui/AnalyticsCharts";
 
 export default function BarberDashboard() {
-    const { appointments, currentUser, barbers, refreshData } = useBarber();
+  const { appointments, currentUser, barbers, refreshData } = useBarber();
 
-    // Refresh data when component mounts to ensure fresh appointments
-    React.useEffect(() => {
-        refreshData();
-    }, []);
+  React.useEffect(() => {
+    refreshData();
+  }, []);
 
-    // Get current barber profile
-    const barberProfile = barbers.find(b => b.userId === currentUser?.id);
+  const barberProfile = barbers.find((b) => b.userId === currentUser?.id);
 
-    // Filter today's appointments for this barber
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todaysApps = appointments.filter(a => a.barberId === barberProfile?.id && a.date === todayStr);
-    const completedToday = todaysApps.filter(a => a.status === 'concluido');
-    const pendingToday = todaysApps.filter(a => a.status === 'agendado' || a.status === 'confirmado' || a.status === 'em atendimento');
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todaysApps = appointments.filter(
+    (a) => a.barberId === barberProfile?.id && a.date === todayStr
+  );
+  const completedToday = todaysApps.filter((a) => a.status === "concluido");
+  const pendingToday = todaysApps.filter(
+    (a) =>
+      a.status === "agendado" ||
+      a.status === "confirmado" ||
+      a.status === "em atendimento"
+  );
 
-    const dailyRevenue = completedToday.reduce((acc, curr) => acc + curr.price, 0);
-    const monthlyCommissions = appointments.filter(a =>
+  const dailyRevenue = completedToday.reduce((acc, curr) => acc + curr.price, 0);
+  const monthlyCommissions = appointments
+    .filter(
+      (a) =>
         a.barberId === barberProfile?.id &&
-        a.status === 'concluido' &&
+        a.status === "concluido" &&
         new Date(a.date).getMonth() === new Date().getMonth()
-    ).reduce((acc, curr) => acc + (curr.commission || 0), 0);
+    )
+    .reduce((acc, curr) => acc + (curr.commission || 0), 0);
 
-    return (
-        <div className="space-y-10 animate-fade-in-up">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight mb-1">Olá, <span className="text-[var(--color-primary-gold)]">{currentUser?.name?.split(' ')[0] || ''}!</span> 👋</h1>
-                    <p className="text-gray-500 text-sm italic">Você tem {todaysApps.length} atendimentos para hoje.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Link href="/barber/horarios">
-                        <Button variant="outline" className="h-12 px-6 rounded-xl border-white/5 uppercase text-[10px] font-black tracking-widest gap-2">
-                            <Clock className="w-4 h-4" /> MEU HORÁRIO
-                        </Button>
-                    </Link>
-                    <Link href="/barber/schedule">
-                        <Button className="h-12 px-8 rounded-xl bg-[var(--color-primary-gold)] text-black font-black uppercase text-[10px] tracking-widest shadow-xl gap-2 hover:scale-[1.02] transition-transform">
-                            VER AGENDA <ChevronRight className="w-4 h-4" />
-                        </Button>
-                    </Link>
-                </div>
-            </header>
+  // Mock bar chart hours data based on todays appointments
+  const hourlyData = [
+    { label: "08:00", value: 2 },
+    { label: "10:00", value: 5 },
+    { label: "12:00", value: 8, highlight: true },
+    { label: "14:00", value: 6 },
+    { label: "16:00", value: 10, highlight: true },
+    { label: "18:00", value: 7 },
+    { label: "20:00", value: 3 },
+  ];
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    title="Atendimentos do Dia"
-                    value={todaysApps.length.toString().padStart(2, '0')}
-                    subtitle={`${completedToday.length} concluídos, ${pendingToday.length} pendentes`}
-                    icon={<CalendarCheck className="w-6 h-6" />}
-                />
-                <StatCard
-                    title="Faturamento do Dia"
-                    value={`R$ ${dailyRevenue.toFixed(2)}`}
-                    subtitle="Bruto total de hoje"
-                    icon={<DollarSign className="w-6 h-6" />}
-                />
-                <StatCard
-                    title="Comissão Acumulada"
-                    value={`R$ ${monthlyCommissions.toFixed(2)}`}
-                    subtitle="Referente ao mês atual"
-                    icon={<TrendingUp className="w-6 h-6" />}
-                />
-                <StatCard
-                    title="Avaliação Média"
-                    value={barberProfile?.rating.toFixed(1) || "5.0"}
-                    subtitle={`Baseado em ${barberProfile?.reviews || 0} reviews`}
-                    icon={<Star className="w-6 h-6" />}
-                />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                {/* Next Customers List */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-xl font-bold flex items-center gap-3 italic">
-                            <Clock className="w-5 h-5 text-[var(--color-primary-gold)]" /> Próximos Atendimentos
-                        </h2>
-                        <Link href="/barber/schedule" className="text-[10px] font-black text-gray-500 hover:text-[var(--color-primary-gold)] uppercase tracking-widest transition-colors">VER TUDO</Link>
-                    </div>
-
-                    <div className="space-y-4">
-                        {pendingToday.slice(0, 5).map((apt, i) => (
-                            <div key={i} className="group relative bg-[#111] border border-white/5 rounded-3xl p-6 transition-all hover:border-[var(--color-primary-gold)]/20 hover:bg-white/[0.02] flex items-center justify-between">
-                                <div className="flex items-center gap-6">
-                                    <div className="text-center w-16 px-3 py-2 bg-black rounded-2xl border border-white/5">
-                                        <p className="text-lg font-black text-white leading-none">{apt.time}</p>
-                                        <p className="text-[8px] text-[var(--color-primary-gold)] font-black uppercase tracking-widest mt-1">HOJE</p>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <h4 className="font-bold text-white tracking-tight">{apt.clientName}</h4>
-                                        <div className="flex items-center gap-3 text-xs text-gray-500 font-medium italic">
-                                            <span className="flex items-center gap-1"><Scissors className="w-3 h-3 text-[var(--color-primary-gold)]" /> {apt.serviceName}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <span className={`hidden md:inline-flex px-3 py-1 bg-[var(--color-primary-gold)]/10 text-[var(--color-primary-gold)] text-[9px] font-black uppercase rounded-lg border border-[var(--color-primary-gold)]/20 tracking-widest`}>
-                                        {apt.status}
-                                    </span>
-                                    <Link href="/barber/schedule">
-                                        <Button variant="ghost" size="sm" className="h-10 px-4 rounded-xl text-[9px] font-black border border-white/5 hover:border-[var(--color-primary-gold)]/50 group-hover:bg-[var(--color-primary-gold)] group-hover:text-black transition-all uppercase tracking-widest">
-                                            GERENCIAR
-                                        </Button>
-                                    </Link>
-                                </div>
-                            </div>
-                        ))}
-                        {pendingToday.length === 0 && (
-                            <p className="text-gray-500 text-sm italic py-10 text-center bg-black/20 rounded-3xl border border-dashed border-white/5">Nenhum atendimento pendente para hoje.</p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Right Panel: Daily Summary / Commission Detail */}
-                <div className="space-y-8">
-                    <div className="bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-[40px] -mr-16 -mt-16" />
-                        <h3 className="text-lg font-bold mb-6 italic">Resumo de Ganhos</h3>
-                        <div className="space-y-5">
-                            <div className="flex justify-between items-end">
-                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Atendimentos Concluídos</p>
-                                <p className="font-bold text-white">{completedToday.length}</p>
-                            </div>
-                            <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                                <div className="h-full bg-[var(--color-primary-gold)] rounded-full shadow-[0_0_10px_rgba(212,175,55,0.4)]" style={{ width: todaysApps.length > 0 ? `${(completedToday.length / todaysApps.length) * 100}%` : '0%' }} />
-                            </div>
-                        </div>
-                        <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                            <p className="text-[10px] text-gray-500 uppercase font-black italic">Comissão do Dia</p>
-                            <p className="text-2xl font-black text-[var(--color-primary-gold)]">R$ {completedToday.reduce((acc, curr) => acc + (curr.commission || 0), 0).toFixed(2)}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-black to-[var(--color-dark-card)] border border-[var(--color-dark-border)] rounded-[2.5rem] p-8 shadow-2xl space-y-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-                                <Star className="w-5 h-5" />
-                            </div>
-                            <h4 className="font-bold italic">Mensagem</h4>
-                        </div>
-                        <div className="space-y-3">
-                            <p className="text-xs text-gray-400 leading-relaxed italic">"Comece seu dia com excelência. Cadastre seus serviços e barbeiros na área administrativa para começar a usar o sistema."</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="space-y-8 animate-fade-in-up">
+      {/* Top Header Welcome Bar */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/5">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" /> Dashboard Barbeiro
+            </span>
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">
+            Olá,{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">
+              {currentUser?.name?.split(" ")[0] || "Barbeiro"}!
+            </span>{" "}
+            👋
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">
+            Você possui{" "}
+            <strong className="text-white font-semibold">
+              {todaysApps.length} agendamentos
+            </strong>{" "}
+            programados para hoje.
+          </p>
         </div>
-    );
+
+        <div className="flex items-center gap-3">
+          <Link href="/barber/horarios">
+            <Button
+              variant="outline"
+              className="h-11 px-5 rounded-xl border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-xs font-bold uppercase tracking-wider gap-2"
+            >
+              <Clock className="w-4 h-4 text-amber-400" /> Meu Horário
+            </Button>
+          </Link>
+          <Link href="/barber/schedule">
+            <Button className="h-11 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-extrabold text-xs uppercase tracking-wider shadow-[0_4px_20px_rgba(245,158,11,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all gap-2">
+              <Calendar className="w-4 h-4" /> Ver Agenda{" "}
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+      </header>
+
+      {/* Grid Top Row: Stats (Left 2 cols) + Bar Chart (Right 2 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Side: Stat Cards 2x2 */}
+        <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatMetricCard
+            title="Atendimentos do Dia"
+            value={todaysApps.length.toString().padStart(2, "0")}
+            subtitle={`${completedToday.length} concluídos • ${pendingToday.length} pendentes`}
+            change="+14.2%"
+            icon={<CalendarCheck className="w-5 h-5" />}
+            sparklineData={[12, 18, 15, 25, 22, 30, 28, 35]}
+          />
+
+          <StatMetricCard
+            title="Faturamento Hoje"
+            value={`R$ ${dailyRevenue.toFixed(2)}`}
+            subtitle="Bruto total arrecadado"
+            change="+8.5%"
+            icon={<DollarSign className="w-5 h-5" />}
+            sparklineData={[100, 250, 180, 400, 320, 500, 480, 620]}
+          />
+
+          <StatMetricCard
+            title="Comissão Acumulada"
+            value={`R$ ${monthlyCommissions.toFixed(2)}`}
+            subtitle="Acumulado do mês atual"
+            change="+12.0%"
+            icon={<TrendingUp className="w-5 h-5" />}
+            sparklineData={[400, 600, 550, 800, 750, 1100, 1050, 1400]}
+          />
+
+          <StatMetricCard
+            title="Avaliação Média"
+            value={barberProfile?.rating.toFixed(1) || "5.0"}
+            subtitle={`Com base em ${barberProfile?.reviews || 12} avaliações`}
+            change="+0.3"
+            icon={<Star className="w-5 h-5" />}
+            sparklineData={[4.7, 4.8, 4.8, 4.9, 4.9, 5.0, 5.0]}
+          />
+        </div>
+
+        {/* Right Side: Appointments Bar Chart */}
+        <div className="lg:col-span-5">
+          <BarChart
+            title="Agendamentos por Horário"
+            subtitle="Distribuição de clientes ao longo do dia"
+            totalValue={todaysApps.length.toString()}
+            data={hourlyData}
+          />
+        </div>
+      </div>
+
+      {/* Grid Bottom Row: Line Spline Chart (Left 7 cols) + Next Appointments Table (Right 5 cols) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Side: Area Spline Chart */}
+        <div className="lg:col-span-7">
+          <AreaSplineChart
+            title="Desempenho de Cortes & Atendimentos"
+            subtitle="Evolução contínua de clientes atendidos"
+            data={[
+              { x: "Seg", value: 12 },
+              { x: "Ter", value: 24 },
+              { x: "Qua", value: 18 },
+              { x: "Qui", value: 35 },
+              { x: "Sex", value: 48 },
+              { x: "Sáb", value: 55 },
+              { x: "Dom", value: 20 },
+            ]}
+          />
+        </div>
+
+        {/* Right Side: Upcoming Appointments Table/List */}
+        <div className="lg:col-span-5 amber-glow-card rounded-2xl p-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
+              <div>
+                <h3 className="text-base font-bold text-white tracking-wide flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400" /> Próximos
+                  Atendimentos
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Agenda agendada para hoje
+                </p>
+              </div>
+              <Link
+                href="/barber/schedule"
+                className="text-xs font-bold text-amber-400 hover:text-amber-300 uppercase tracking-wider transition-colors"
+              >
+                Ver Todos
+              </Link>
+            </div>
+
+            {/* List Rows */}
+            <div className="space-y-3.5">
+              {(pendingToday.length > 0
+                ? pendingToday.slice(0, 4)
+                : appointments.slice(0, 4)
+              ).map((apt, i) => (
+                <div
+                  key={i}
+                  className="group relative bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800/80 hover:border-amber-500/30 rounded-xl p-3.5 transition-all duration-300 flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {/* Time Badge */}
+                    <div className="w-12 h-12 rounded-xl bg-slate-950 border border-amber-500/30 flex flex-col items-center justify-center shrink-0 shadow-inner">
+                      <span className="text-xs font-extrabold text-amber-400 leading-none">
+                        {apt.time}
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter mt-0.5">
+                        HOJE
+                      </span>
+                    </div>
+
+                    {/* Client & Service info */}
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-white text-sm truncate group-hover:text-amber-400 transition-colors">
+                        {apt.clientName}
+                      </h4>
+                      <p className="text-xs text-slate-400 flex items-center gap-1.5 truncate mt-0.5">
+                        <Scissors className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span>{apt.serviceName}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Price & Action */}
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                    <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20">
+                      R$ {apt.price.toFixed(2)}
+                    </span>
+                    <Link href="/barber/schedule">
+                      <span className="text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-wider transition-colors">
+                        Gerenciar →
+                      </span>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+
+              {appointments.length === 0 && (
+                <div className="text-center py-10 border border-dashed border-slate-800 rounded-xl text-slate-500 text-xs italic">
+                  Nenhum agendamento encontrado para exibir.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Card Footer Summary */}
+          <div className="pt-4 mt-6 border-t border-white/5 flex items-center justify-between text-xs text-slate-400">
+            <span>Total Pendentes</span>
+            <span className="font-bold text-white">
+              {pendingToday.length} agendamento(s)
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
