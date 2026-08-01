@@ -37,7 +37,7 @@ export default function SchedulePage() {
         
         const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
         const dayName = dayNames[dateObj.getDay()];
-        const dayConfig = shopConfig.workingHours?.[dayName];
+        const dayConfig = (selectedBarber as any)?.workingHours?.[dayName] || shopConfig.workingHours?.[dayName];
         
         let generatedSlots: string[] = [];
         let shopEndMinutes = 0;
@@ -107,8 +107,8 @@ export default function SchedulePage() {
 
             const endTime = slot.minutes + selectedDuration;
 
-            // Rule A: Shop closing
-            if (endTime > shopEndMinutes) return { time: slot.time, taken: true };
+            // Rule A: Shop closing (disallow slots starting after shop closing time)
+            if (slot.minutes > shopEndMinutes) return { time: slot.time, taken: true };
 
             // Rule B: Overlap with future appointments/blocks
             const hasConflict = baseSlots.some(otherSlot => 
