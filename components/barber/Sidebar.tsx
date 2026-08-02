@@ -36,9 +36,10 @@ export default function BarberSidebar({ isOpen, onClose }: { isOpen: boolean; on
     const { logout, currentUser } = useBarber();
 
     const isAdmin = currentUser?.role === 'admin';
+    const clientItem = { icon: <Scissors size={20} />, label: 'Área do Cliente', href: '/client' };
     const finalMenuItems = isAdmin 
-        ? [{ icon: <BarChart3 size={20} />, label: 'Painel Admin', href: '/admin' }, ...menuItems]
-        : menuItems;
+        ? [{ icon: <BarChart3 size={20} />, label: 'Painel Admin', href: '/admin' }, ...menuItems, clientItem]
+        : [...menuItems, clientItem];
 
     const handleLogout = () => {
         logout();

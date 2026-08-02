@@ -50,9 +50,9 @@ export function middleware(request: NextRequest) {
         }
     }
 
-    // 4. Proteção CLIENTE
+    // 4. Proteção CLIENTE (qualquer usuário autenticado pode acessar a área do cliente)
     if (url.pathname.startsWith('/client')) {
-        if (!user || user.role !== 'client') {
+        if (!user) {
             return NextResponse.redirect(new URL('/', request.url));
         }
     }
