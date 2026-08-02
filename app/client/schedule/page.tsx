@@ -59,7 +59,7 @@ export default function SchedulePage() {
         const relevantAppointments = appointments.filter(apt => 
             apt.date === selectedDate && 
             apt.barberId === selectedBarber.id && 
-            ['agendado', 'confirmado', 'em atendimento'].includes(apt.status?.toLowerCase() || '')
+            ['agendado', 'confirmado', 'em atendimento', 'concluido'].includes(apt.status?.toLowerCase() || '')
         );
 
         const globalBlocked = (shopConfig.blockedSlots || []).filter(s => s.startsWith(`${dayName}-`)).map(s => s.split('-')[1]);

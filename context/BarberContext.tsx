@@ -680,24 +680,59 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         const service = services.find(s => s.id === appData.serviceId);
         const commissionVal = (appData.price * (barber?.commission || 40)) / 100;
 
-        const { data: newAppList, error } = await supabase
+        // Verificar se existe algum agendamento cancelado para esse horário/barbeiro para reaproveitar a linha e evitar conflito de chave única
+        const { data: cancelledApps } = await supabase
             .from('agendamentos')
-            .insert([{
-                cliente_id: appData.clientId,
-                barbeiro_id: appData.barberId,
-                servico_id: appData.serviceId,
-                nome_cliente: appData.clientName,
-                nome_barbeiro: barber?.name || appData.barberName,
-                nome_servico: service?.name || appData.serviceName,
-                valor: appData.price,
-                comissao_gerada: commissionVal,
-                data: appData.date,
-                horario: appData.time,
-                status: 'agendado'
-            }])
-            .select();
+            .select('id')
+            .eq('barbeiro_id', appData.barberId)
+            .eq('data', appData.date)
+            .eq('horario', appData.time)
+            .eq('status', 'cancelado')
+            .limit(1);
 
-        const newApp = newAppList?.[0];
+        let newApp: any = null;
+        let error: any = null;
+
+        if (cancelledApps && cancelledApps.length > 0) {
+            const cancelledId = cancelledApps[0].id;
+            const { data: updatedList, error: updateErr } = await supabase
+                .from('agendamentos')
+                .update({
+                    cliente_id: appData.clientId,
+                    servico_id: appData.serviceId,
+                    nome_cliente: appData.clientName,
+                    nome_barbeiro: barber?.name || appData.barberName,
+                    nome_servico: service?.name || appData.serviceName,
+                    valor: appData.price,
+                    comissao_gerada: commissionVal,
+                    status: 'agendado'
+                })
+                .eq('id', cancelledId)
+                .select();
+
+            newApp = updatedList?.[0];
+            error = updateErr;
+        } else {
+            const { data: newAppList, error: insertErr } = await supabase
+                .from('agendamentos')
+                .insert([{
+                    cliente_id: appData.clientId,
+                    barbeiro_id: appData.barberId,
+                    servico_id: appData.serviceId,
+                    nome_cliente: appData.clientName,
+                    nome_barbeiro: barber?.name || appData.barberName,
+                    nome_servico: service?.name || appData.serviceName,
+                    valor: appData.price,
+                    comissao_gerada: commissionVal,
+                    data: appData.date,
+                    horario: appData.time,
+                    status: 'agendado'
+                }])
+                .select();
+
+            newApp = newAppList?.[0];
+            error = insertErr;
+        }
 
         if (error) {
             console.error("Erro ao agendar no Supabase:", error);

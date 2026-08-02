@@ -189,7 +189,7 @@ export default function BarberHorarios() {
         return appointments.find(apt => {
             if (apt.barberId !== currentBarber.id) return false;
             if (apt.date !== targetDate) return false;
-            if (!['agendado', 'confirmado', 'em atendimento'].includes(apt.status.toLowerCase())) return false;
+            if (!['agendado', 'confirmado', 'em atendimento', 'concluido'].includes(apt.status.toLowerCase())) return false;
 
             const appMin = timeToMinutes(apt.time);
             const service = services.find(s => s.id === apt.serviceId || s.name === apt.serviceName);
