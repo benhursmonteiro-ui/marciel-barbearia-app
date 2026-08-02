@@ -17,7 +17,7 @@ import { useBarber, Appointment, AppointmentStatus } from '@/context/BarberConte
 import { getTodayLocalDateStr } from '@/lib/timeUtils';
 
 export default function BarberSchedule() {
-    const { appointments, updateAppointmentStatus, currentUser, barbers, users, refreshData } = useBarber();
+    const { appointments, updateAppointmentStatus, updateAppointmentPayment, currentUser, barbers, users, refreshData } = useBarber();
     const [selectedDateFilter, setSelectedDateFilter] = useState(getTodayLocalDateStr());
     const [statusFilter, setStatusFilter] = useState("TODOS");
     const [activeApt, setActiveApt] = useState<Appointment | null>(null);
@@ -240,27 +240,54 @@ export default function BarberSchedule() {
                                 );
                             })()}
 
-                            <div className="space-y-4 pt-6">
+                            <div className="space-y-3 pt-6">
                                 {activeApt.status === 'agendado' && (
                                     <Button
                                         onClick={() => handleStatusUpdate(activeApt.id, 'em atendimento')}
-                                        className="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-black font-black uppercase text-[11px] tracking-[0.2em] shadow-xl"
+                                        className="w-full h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-black font-black uppercase text-[11px] tracking-[0.2em] shadow-xl"
                                     >
                                         INICIAR ATENDIMENTO
                                     </Button>
                                 )}
-                                {activeApt.status === 'em atendimento' && (
+                                {(activeApt.status === 'em atendimento' || activeApt.status === 'agendado' || activeApt.status === 'confirmado') && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Button
+                                            onClick={() => {
+                                                updateAppointmentStatus(activeApt.id, 'concluido');
+                                                updateAppointmentPayment(activeApt.id, 'pago', 'pix');
+                                                setActiveApt(prev => prev ? { ...prev, status: 'concluido', paymentStatus: 'pago' } : null);
+                                            }}
+                                            className="w-full h-14 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-1"
+                                        >
+                                            ✓ PAGO
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                updateAppointmentStatus(activeApt.id, 'concluido');
+                                                updateAppointmentPayment(activeApt.id, 'fiado', 'fiado');
+                                                setActiveApt(prev => prev ? { ...prev, status: 'concluido', paymentStatus: 'fiado', isFiado: true } : null);
+                                            }}
+                                            className="w-full h-14 rounded-2xl bg-amber-500 hover:bg-amber-400 text-black font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-1"
+                                        >
+                                            📖 FIADO
+                                        </Button>
+                                    </div>
+                                )}
+                                {(activeApt.status === 'concluido' && (activeApt.isFiado || activeApt.paymentStatus === 'fiado') && !activeApt.fiadoPaid) && (
                                     <Button
-                                        onClick={() => handleStatusUpdate(activeApt.id, 'concluido')}
-                                        className="w-full h-16 rounded-2xl bg-blue-600 hover:bg-blue-700 text-black font-black uppercase text-[11px] tracking-[0.2em] shadow-xl"
+                                        onClick={() => {
+                                            updateAppointmentPayment(activeApt.id, 'pago', 'dinheiro');
+                                            setActiveApt(prev => prev ? { ...prev, fiadoPaid: true, paymentStatus: 'pago' } : null);
+                                        }}
+                                        className="w-full h-14 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black uppercase text-[10px] tracking-widest shadow-xl"
                                     >
-                                        CONCLUIR SERVIÇO
+                                        QUITAR FIADO AGORA
                                     </Button>
                                 )}
                                 <Button
                                     onClick={() => handleStatusUpdate(activeApt.id, 'cancelado')}
                                     variant="outline"
-                                    className="w-full h-14 rounded-2xl border-red-500/20 text-red-500 hover:bg-red-500/10 font-black uppercase text-[10px] tracking-widest border-dashed"
+                                    className="w-full h-12 rounded-2xl border-red-500/20 text-red-500 hover:bg-red-500/10 font-black uppercase text-[10px] tracking-widest border-dashed"
                                 >
                                     CANCELAR HORÁRIO
                                 </Button>
