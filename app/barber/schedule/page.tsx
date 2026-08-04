@@ -28,20 +28,24 @@ export default function BarberSchedule() {
         refreshData();
     }, []);
 
-    // Get current barber's ID (robust matching)
+    // Get current barber's ID (robust matching com suporte a String e Admin)
+    const isAdmin = currentUser?.role === 'admin';
     const barberProfile = barbers.find(b => 
-        b.userId === currentUser?.id || 
-        b.id === currentUser?.id || 
+        String(b.userId) === String(currentUser?.id) || 
+        String(b.id) === String(currentUser?.id) || 
         b.name.toLowerCase() === currentUser?.name?.toLowerCase()
     );
 
     const statusOptions = ["TODOS", "AGENDADO", "CONFIRMADO", "EM ATENDIMENTO", "CONCLUIDO", "CANCELADO"];
 
-    // Filter appointments for THIS barber and status/date
+    // Filter appointments for THIS barber (ou todos se for admin sem perfil vinculado) e status/date
     const filteredAppointments = appointments.filter(app => {
-        if (app.barberId !== barberProfile?.id) return false;
+        if (!isAdmin && barberProfile && String(app.barberId) !== String(barberProfile.id)) return false;
+        if (isAdmin && barberProfile && String(app.barberId) !== String(barberProfile.id)) {
+            // Se for admin com perfil de barbeiro associado, permite filtrar pelo seu próprio perfil ou ver todos
+        }
         
-        const statusUpper = app.status.toUpperCase();
+        const statusUpper = (app.status || "").toUpperCase();
         const matchesStatus = statusFilter === "TODOS" 
             ? (statusUpper !== "CONCLUIDO" && statusUpper !== "CANCELADO") 
             : (statusUpper === statusFilter);

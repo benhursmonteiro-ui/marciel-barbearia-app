@@ -22,10 +22,11 @@ export function middleware(request: NextRequest) {
     }
 
     const url = new URL(request.url);
+    const userRole = user?.role ? String(user.role).toLowerCase() : null;
 
     // 1. Se estiver logado e for a raiz (/), manda para o dashboard (se não estiver bloqueado)
     if (url.pathname === '/' && user && !user.blocked) {
-        const destination = user.role === 'admin' ? '/admin' : user.role === 'barber' ? '/barber' : '/client';
+        const destination = userRole === 'admin' ? '/admin' : userRole === 'barber' ? '/barber' : '/client';
         return NextResponse.redirect(new URL(destination, request.url));
     }
 
@@ -38,14 +39,14 @@ export function middleware(request: NextRequest) {
 
     // 2. Proteção ADMIN
     if (url.pathname.startsWith('/admin')) {
-        if (!user || user.role !== 'admin') {
+        if (!user || userRole !== 'admin') {
             return NextResponse.redirect(new URL('/', request.url));
         }
     }
 
     // 3. Proteção BARBER
     if (url.pathname.startsWith('/barber')) {
-        if (!user || (user.role !== 'barber' && user.role !== 'admin')) {
+        if (!user || (userRole !== 'barber' && userRole !== 'admin')) {
             return NextResponse.redirect(new URL('/', request.url));
         }
     }

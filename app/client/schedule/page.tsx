@@ -55,10 +55,10 @@ export default function SchedulePage() {
         // Check if today is a non-working day (Mon/Sun)
         const isNonWorkingDay = dayName === "Segunda" || dayName === "Domingo";
 
-        // Filter appointments for the selected day and barber
+        // Filter appointments for the selected day and barber (comparação segura por String)
         const relevantAppointments = appointments.filter(apt => 
             apt.date === selectedDate && 
-            apt.barberId === selectedBarber.id && 
+            String(apt.barberId) === String(selectedBarber.id) && 
             ['agendado', 'confirmado', 'em atendimento', 'concluido'].includes(apt.status?.toLowerCase() || '')
         );
 
@@ -79,7 +79,7 @@ export default function SchedulePage() {
             const isOccupiedByAppointment = relevantAppointments.some(apt => {
                 const appMin = timeToMinutes(apt.time);
                 // We find the service to get its duration (matching by id or name)
-                const service = services.find(s => s.id === apt.serviceId || s.name === apt.serviceName);
+                const service = services.find(s => String(s.id) === String(apt.serviceId) || s.name === apt.serviceName);
                 const durMin = getDurationMinutes(service?.duration || "30 min");
                 return slotMin >= appMin && slotMin < (appMin + durMin);
             });

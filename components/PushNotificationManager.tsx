@@ -6,21 +6,18 @@ import { useBarber } from "@/context/BarberContext";
 import { supabase } from "@/lib/supabase";
 
 export default function PushNotificationManager() {
-  const [permission, setPermission] = useState<NotificationPermission>("default");
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported] = useState<boolean>(() => typeof window !== "undefined" && "serviceWorker" in navigator && "Notification" in window);
+  const [permission, setPermission] = useState<NotificationPermission>(() => typeof window !== "undefined" && "Notification" in window ? Notification.permission : "default");
   const { currentUser } = useBarber();
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator && "Notification" in window) {
-      setIsSupported(true);
-      setPermission(Notification.permission);
-      
+    if (isSupported) {
       // Register Service Worker
       navigator.serviceWorker.register("/sw.js").then((reg) => {
         console.log("Service Worker registrado com sucesso:", reg);
       });
     }
-  }, []);
+  }, [isSupported]);
 
   // Realtime Notification Logic
   useEffect(() => {

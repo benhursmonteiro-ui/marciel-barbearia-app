@@ -33,14 +33,14 @@ export default function BarberDashboard() {
 
   const barberProfile = barbers.find(
     (b) =>
-      b.userId === currentUser?.id ||
-      b.id === currentUser?.id ||
+      String(b.userId) === String(currentUser?.id) ||
+      String(b.id) === String(currentUser?.id) ||
       b.name.toLowerCase() === currentUser?.name?.toLowerCase()
   );
 
   const todayStr = getTodayLocalDateStr();
   const todaysApps = appointments.filter(
-    (a) => a.barberId === barberProfile?.id && a.date === todayStr
+    (a) => String(a.barberId) === String(barberProfile?.id) && a.date === todayStr
   );
   const completedToday = todaysApps.filter((a) => a.status === "concluido");
   const pendingToday = todaysApps.filter(
@@ -54,7 +54,7 @@ export default function BarberDashboard() {
   const monthlyCommissions = appointments
     .filter(
       (a) =>
-        a.barberId === barberProfile?.id &&
+        String(a.barberId) === String(barberProfile?.id) &&
         a.status === "concluido" &&
         new Date(a.date).getMonth() === new Date().getMonth()
     )

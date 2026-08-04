@@ -275,7 +275,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             ]);
 
             if (dbUsers) setUsers(dbUsers.map((u: any) => ({
-                id: u.id,
+                id: String(u.id),
                 name: u.nome,
                 email: u.email,
                 password: u.senha,
@@ -288,8 +288,8 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             })));
             
             if (dbBarbers) setBarbers(dbBarbers.map((b: any) => ({
-                id: b.id,
-                userId: b.usuario_id,
+                id: String(b.id),
+                userId: String(b.usuario_id),
                 name: b.nome,
                 specialty: b.especialidade,
                 rating: b.rating || b.avaliacao || 5.0,
@@ -302,7 +302,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             })));
             
             if (dbServices) setServices(dbServices.map((s: any) => ({
-                id: s.id,
+                id: String(s.id),
                 name: s.nome,
                 description: s.descricao,
                 duration: s.duracao,
@@ -314,12 +314,12 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             
             if (dbAppointments) {
                 const sortedApps = dbAppointments.map((a: any) => ({
-                    id: a.id,
-                    clientId: a.cliente_id,
+                    id: String(a.id),
+                    clientId: String(a.cliente_id),
                     clientName: a.nome_cliente,
-                    barberId: a.barbeiro_id,
+                    barberId: String(a.barbeiro_id),
                     barberName: a.nome_barbeiro,
-                    serviceId: a.servico_id,
+                    serviceId: String(a.servico_id),
                     serviceName: a.nome_servico,
                     price: a.valor,
                     commission: a.comissao_gerada,
@@ -414,9 +414,19 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         const init = async () => {
             await fetchFromSupabase();
 
-            // Restore session from localStorage
-            const savedCurrentUser = localStorage.getItem('mbs_current_user');
-            if (savedCurrentUser) setCurrentUser(JSON.parse(savedCurrentUser));
+            // Restore session from localStorage safely
+            try {
+                const savedCurrentUser = localStorage.getItem('mbs_current_user');
+                if (savedCurrentUser) {
+                    const parsedUser = JSON.parse(savedCurrentUser);
+                    if (parsedUser && parsedUser.id && parsedUser.role) {
+                        setCurrentUser(parsedUser);
+                    }
+                }
+            } catch (e) {
+                console.error('[MBS] Erro ao restaurar usuário do localStorage:', e);
+                localStorage.removeItem('mbs_current_user');
+            }
 
             setIsLoaded(true);
             setIsAuthReady(true);
@@ -517,41 +527,59 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             return adminUser;
         }
 
-        // Login via RPC segura (protegida contra RLS)
-        const { data, error } = await supabase
-            .rpc('login_user', { 
-                p_email: email, 
-                p_password: password 
-            })
-            .single() as { data: any, error: any };
+        // Tentativa 1: Login via RPC segura
+        let userData: any = null;
+        try {
+            const { data, error } = await supabase
+                .rpc('login_user', { 
+                    p_email: email, 
+                    p_password: password 
+                })
+                .single() as { data: any, error: any };
 
-        if (error || !data) {
-            console.error("Erro no login:", error);
-            return null;
+            if (!error && data) {
+                userData = data;
+            }
+        } catch (e) {
+            console.warn("[MBS] RPC login_user não disponível, tentando busca direta...", e);
         }
 
-        // Tenta buscar diretamente da tabela usuarios para verificar se está bloqueado!
-        const { data: dbUser } = await supabase
-            .from('usuarios')
-            .select('bloqueado')
-            .eq('id', data.id)
-            .single();
+        // Tentativa 2: Fallback para consulta direta se RPC falhar
+        if (!userData) {
+            const { data: directUser, error: directErr } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('email', email)
+                .eq('senha', password)
+                .maybeSingle();
 
-        if (dbUser?.bloqueado) {
+            if (directErr || !directUser) {
+                console.error("Erro no login (RPC e busca direta falharam):", directErr);
+                return null;
+            }
+
+            userData = directUser;
+        }
+
+        if (userData.bloqueado) {
             throw new Error("Sua conta está bloqueada. Entre em contato com o administrador.");
         }
 
+        const roleNormalized = (
+            userData.funcao?.toLowerCase() === 'barbeiro' ? 'barber' :
+            userData.funcao?.toLowerCase() === 'cliente' ? 'client' :
+            userData.funcao?.toLowerCase()
+        ) as UserRole;
+
         const user: User = {
-            id: data.id,
-            name: data.nome,
-            email: data.email,
-            password: data.senha,
-            role: (data.funcao?.toLowerCase() === 'barbeiro' ? 'barber' :
-                data.funcao?.toLowerCase() === 'cliente' ? 'client' :
-                    data.funcao) as UserRole,
-            blocked: dbUser?.bloqueado || false,
-            photo: data.foto_url || "",
-            phone: data.telefone || ""
+            id: userData.id,
+            name: userData.nome || userData.name || email.split('@')[0],
+            email: userData.email,
+            password: userData.senha,
+            role: roleNormalized,
+            blocked: userData.bloqueado || false,
+            photo: userData.foto_url || "",
+            phone: userData.telefone || ""
         };
 
         setCurrentUser(user);
@@ -676,9 +704,22 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     };
 
     const addAppointment = async (appData: Omit<Appointment, 'id' | 'createdAt' | 'commission'>) => {
-        const barber = barbers.find(b => b.id === appData.barberId);
-        const service = services.find(s => s.id === appData.serviceId);
+        const barber = barbers.find(b => String(b.id) === String(appData.barberId));
+        const service = services.find(s => String(s.id) === String(appData.serviceId));
         const commissionVal = (appData.price * (barber?.commission || 40)) / 100;
+
+        // TRAVA ANTI-DUPLICIDADE: Verificar se existe algum agendamento ativo no mesmo horário para este barbeiro
+        const { data: activeApps } = await supabase
+            .from('agendamentos')
+            .select('id, status')
+            .eq('barbeiro_id', appData.barberId)
+            .eq('data', appData.date)
+            .eq('horario', appData.time)
+            .neq('status', 'cancelado');
+
+        if (activeApps && activeApps.length > 0) {
+            throw new Error("⚠️ Este horário já foi reservado por outro cliente! Por favor, selecione outro horário disponível.");
+        }
 
         // Verificar se existe algum agendamento cancelado para esse horário/barbeiro para reaproveitar a linha e evitar conflito de chave única
         const { data: cancelledApps } = await supabase
