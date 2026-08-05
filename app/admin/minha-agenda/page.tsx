@@ -52,7 +52,10 @@ export default function AdminMinhaAgenda() {
     // Filtra agendamentos APENAS deste barbeiro
     const myAppointments = useMemo(() => {
         if (!currentBarber) return [];
-        return appointments.filter(apt => apt.barberId === currentBarber.id);
+        return appointments.filter(apt => 
+            String(apt.barberId) === String(currentBarber.id) ||
+            (apt.barberName && currentBarber.name && apt.barberName.toLowerCase().trim() === currentBarber.name.toLowerCase().trim())
+        );
     }, [appointments, currentBarber]);
 
     // KPI Metrics for personal agenda
@@ -165,7 +168,7 @@ export default function AdminMinhaAgenda() {
                         />
                     </div>
 
-                    <div className="relative w-full sm:w-auto">
+                    <div className="relative w-full sm:w-auto flex items-center gap-2">
                         <input 
                             type="date"
                             ref={dateInputRef}
@@ -186,6 +189,17 @@ export default function AdminMinhaAgenda() {
                             <Icon name="Calendar" className="w-4 h-4 text-[#D4AF37]" />
                             {selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'TODAS AS DATAS'}
                         </button>
+
+                        {selectedDate && (
+                            <button
+                                onClick={() => setSelectedDate('')}
+                                className="h-14 px-4 bg-[#111] border border-[#1f1f1f] text-gray-400 hover:text-white hover:border-white/20 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 transition-all shrink-0"
+                                title="Ver Todas as Datas"
+                            >
+                                <Icon name="X" className="w-4 h-4 text-red-400" />
+                                <span className="hidden md:inline text-[10px]">TODAS AS DATAS</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

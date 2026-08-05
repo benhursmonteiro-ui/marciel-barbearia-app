@@ -250,6 +250,35 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 return data;
             };
 
+            // Função para buscar TODOS os agendamentos sem truncar no limite de 1000 do Supabase
+            const fetchAllAppointments = async () => {
+                let allApps: any[] = [];
+                let from = 0;
+                const step = 1000;
+                let hasMore = true;
+
+                while (hasMore) {
+                    const { data, error } = await supabase
+                        .from('agendamentos')
+                        .select('*')
+                        .order('data', { ascending: false })
+                        .range(from, from + step - 1);
+
+                    if (error || !data || data.length === 0) {
+                        hasMore = false;
+                    } else {
+                        allApps = allApps.concat(data);
+                        if (data.length < step) {
+                            hasMore = false;
+                        } else {
+                            from += step;
+                        }
+                    }
+                }
+                console.log(`[MBS] Fetched all agendamentos: ${allApps.length} total records`);
+                return allApps;
+            };
+
             const [
                 dbUsers,
                 dbBarbers,
@@ -265,7 +294,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 safeFetch(supabase.from('usuarios').select('*'), 'usuarios'),
                 safeFetch(supabase.from('barbeiros').select('*'), 'barbeiros'),
                 safeFetch(supabase.from('servicos').select('*'), 'servicos'),
-                safeFetch(supabase.from('agendamentos').select('*'), 'agendamentos'),
+                fetchAllAppointments(),
                 safeFetch(supabase.from('promocoes').select('*'), 'promocoes'),
                 safeFetch(supabase.from('estoque').select('*'), 'estoque'),
                 safeFetch(supabase.from('configuracoes_loja').select('*'), 'configuracoes_loja'),
@@ -326,7 +355,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                     date: a.data,
                     time: a.horario,
                     status: a.status,
-                    createdAt: a.created_at
+                    createdAt: a.criado_at || a.created_at
                 })).sort((a: any, b: any) => {
                     const dateCompare = (b.date || "").localeCompare(a.date || "");
                     if (dateCompare !== 0) return dateCompare;
