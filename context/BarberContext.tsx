@@ -250,33 +250,20 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 return data;
             };
 
-            // Função para buscar TODOS os agendamentos sem truncar no limite de 1000 do Supabase
+            // Função para buscar TODOS os agendamentos sem truncar e com altíssima performance
             const fetchAllAppointments = async () => {
-                let allApps: any[] = [];
-                let from = 0;
-                const step = 1000;
-                let hasMore = true;
+                const { data, error } = await supabase
+                    .from('agendamentos')
+                    .select('*')
+                    .order('data', { ascending: false })
+                    .limit(3000);
 
-                while (hasMore) {
-                    const { data, error } = await supabase
-                        .from('agendamentos')
-                        .select('*')
-                        .order('data', { ascending: false })
-                        .range(from, from + step - 1);
-
-                    if (error || !data || data.length === 0) {
-                        hasMore = false;
-                    } else {
-                        allApps = allApps.concat(data);
-                        if (data.length < step) {
-                            hasMore = false;
-                        } else {
-                            from += step;
-                        }
-                    }
+                if (error) {
+                    console.warn(`[MBS] Fetch warning (agendamentos):`, error.message);
+                    return null;
                 }
-                console.log(`[MBS] Fetched all agendamentos: ${allApps.length} total records`);
-                return allApps;
+                console.log(`[MBS] Fetched agendamentos: ${data?.length ?? 0} records`);
+                return data;
             };
 
             const [
@@ -441,9 +428,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     // Initial Load and Seed
     useEffect(() => {
         const init = async () => {
-            await fetchFromSupabase();
-
-            // Restore session from localStorage safely
+            // 1. Restaura a sessão do localStorage instantaneamente para não travar o carregamento inicial
             try {
                 const savedCurrentUser = localStorage.getItem('mbs_current_user');
                 if (savedCurrentUser) {
@@ -455,10 +440,13 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             } catch (e) {
                 console.error('[MBS] Erro ao restaurar usuário do localStorage:', e);
                 localStorage.removeItem('mbs_current_user');
+            } finally {
+                setIsLoaded(true);
+                setIsAuthReady(true);
             }
 
-            setIsLoaded(true);
-            setIsAuthReady(true);
+            // 2. Carrega dados atualizados do Supabase em segundo plano
+            await fetchFromSupabase();
         };
 
         init();
