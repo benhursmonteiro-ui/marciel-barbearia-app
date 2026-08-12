@@ -278,26 +278,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     };
 
     const fetchNotificationsOnly = async () => {
-        const { data, error } = await supabase
-            .from('notificacoes')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(30);
-
-        if (!error && data) {
-            const formatted = data.map((n: any) => ({
-                id: n.id,
-                userId: n.usuario_id,
-                title: n.titulo,
-                message: n.mensagem,
-                type: n.tipo,
-                read: n.lida,
-                referenceId: n.referencia_id,
-                createdAt: n.created_at
-            }));
-            setNotifications(formatted);
-            safeCache('mbs_cache_notifications', formatted);
-        }
+        // Notificações desativadas para economizar dados
     };
 
     const fetchBarbersOnly = async () => {
@@ -374,8 +355,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 dbProducts,
                 dbConfig,
                 dbExpenses,
-                dbIncomes,
-                dbNotifications
+                dbIncomes
             ] = await Promise.all([
                 safeFetch(supabase.from('usuarios').select('*'), 'usuarios'),
                 safeFetch(supabase.from('barbeiros').select('*'), 'barbeiros'),
@@ -385,8 +365,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 safeFetch(supabase.from('estoque').select('*'), 'estoque'),
                 safeFetch(supabase.from('configuracoes_loja').select('*'), 'configuracoes_loja'),
                 safeFetch(supabase.from('despesas').select('*'), 'despesas'),
-                safeFetch(supabase.from('entradas_avulsas').select('*'), 'entradas_avulsas'),
-                safeFetch(supabase.from('notificacoes').select('*').order('created_at', { ascending: false }).limit(30), 'notificacoes')
+                safeFetch(supabase.from('entradas_avulsas').select('*'), 'entradas_avulsas')
             ]);
 
             if (dbUsers) {
@@ -538,21 +517,6 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 }));
                 setIncomes(formatted);
             }
-            
-            if (dbNotifications) {
-                const formatted = dbNotifications.map((n: any) => ({
-                    id: n.id,
-                    userId: n.usuario_id,
-                    title: n.titulo,
-                    message: n.mensagem,
-                    type: n.tipo,
-                    read: n.lida,
-                    referenceId: n.referencia_id,
-                    createdAt: n.created_at
-                }));
-                setNotifications(formatted);
-                safeCache('mbs_cache_notifications', formatted);
-            }
 
         } catch (error) {
             console.error("Critical error in fetchFromSupabase:", error);
@@ -617,13 +581,6 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             })
             .subscribe();
 
-        const notificacoesChannel = supabase.channel('public:notificacoes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacoes' }, (payload) => {
-                console.log('[MBS] Realtime: notificacoes changed', payload.eventType);
-                fetchNotificationsOnly();
-            })
-            .subscribe();
-
         const barbeirosChannel = supabase.channel('public:barbeiros')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'barbeiros' }, (payload) => {
                 console.log('[MBS] Realtime: barbeiros changed', payload.eventType);
@@ -640,7 +597,6 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
         return () => {
             supabase.removeChannel(agendamentosChannel);
-            supabase.removeChannel(notificacoesChannel);
             supabase.removeChannel(barbeirosChannel);
             supabase.removeChannel(servicosChannel);
         };
