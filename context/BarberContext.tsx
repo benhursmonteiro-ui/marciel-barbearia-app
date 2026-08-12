@@ -351,7 +351,6 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 dbBarbers,
                 dbServices,
                 dbAppointments,
-                dbPromotions,
                 dbProducts,
                 dbConfig,
                 dbExpenses,
@@ -361,7 +360,6 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 safeFetch(supabase.from('barbeiros').select('*'), 'barbeiros'),
                 safeFetch(supabase.from('servicos').select('*'), 'servicos'),
                 fetchAllAppointments(),
-                safeFetch(supabase.from('promocoes').select('*'), 'promocoes'),
                 safeFetch(supabase.from('estoque').select('*'), 'estoque'),
                 safeFetch(supabase.from('configuracoes_loja').select('*'), 'configuracoes_loja'),
                 safeFetch(supabase.from('despesas').select('*'), 'despesas'),
@@ -440,22 +438,6 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 });
                 setAppointments(sortedApps);
                 safeCache('mbs_cache_appointments', sortedApps);
-            }
-            
-            if (dbPromotions) {
-                const formatted = dbPromotions.map((p: any) => ({
-                    id: p.id,
-                    tag: p.tag,
-                    title: p.titulo,
-                    description: p.descricao,
-                    price: p.preco,
-                    color: p.gradiente_cor,
-                    accentBg: p.accent_bg,
-                    textColor: p.texto_cor,
-                    active: p.ativo
-                }));
-                setPromotions(formatted);
-                safeCache('mbs_cache_promotions', formatted);
             }
             
             if (dbProducts) {
@@ -548,9 +530,6 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
 
                 const cachedConfig = localStorage.getItem('mbs_cache_shopConfig');
                 if (cachedConfig) setShopConfig(JSON.parse(cachedConfig));
-
-                const cachedPromos = localStorage.getItem('mbs_cache_promotions');
-                if (cachedPromos) setPromotions(JSON.parse(cachedPromos));
 
                 const cachedProducts = localStorage.getItem('mbs_cache_products');
                 if (cachedProducts) setProducts(JSON.parse(cachedProducts));

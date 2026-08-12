@@ -178,38 +178,7 @@ export default function ClientDashboard() {
                     </div>
                 </div>
 
-                <div className="space-y-8">
-                    {promotions.filter(p => p.active).length > 0 && (
-                        <div className="space-y-6">
-                            <h4 className="px-2 flex items-center gap-3 text-lg font-bold italic">
-                                <TicketPercent className="w-5 h-5 text-[var(--color-primary-gold)]" /> Ofertas Ativas
-                            </h4>
-                            <div className="space-y-6">
-                                {promotions.filter(p => p.active).slice(0, 2).map((promo, i) => (
-                                    <Link href="/client/promotions" key={i} className="block group">
-                                        <div className={`relative overflow-hidden p-8 bg-gradient-to-br ${promo.color} border border-white/5 rounded-[2.5rem] shadow-xl group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.5)] transition-all group-hover:-translate-y-1`}>
-                                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none group-hover:scale-150 transition-transform" />
-                                            <div className="relative z-10">
-                                                <span className={`inline-block px-4 py-1.5 ${promo.accentBg} ${promo.textColor} text-[9px] font-black uppercase rounded-full mb-6 tracking-widest shadow-lg shadow-black/20`}>{promo.tag}</span>
-                                                <h5 className="text-2xl font-black mb-1 italic tracking-tight">{promo.title}</h5>
-                                                <p className="text-white/40 text-xs mb-6 line-clamp-2 leading-relaxed uppercase font-bold tracking-tighter">{promo.description}</p>
-                                                <div className="flex items-end justify-between">
-                                                    <div>
-                                                        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Valor Exclusivo</p>
-                                                        <p className="text-3xl font-black text-[var(--color-primary-gold)]">R$ {promo.price.toFixed(2)}</p>
-                                                    </div>
-                                                    <div className="w-12 h-12 bg-black/40 rounded-2xl flex items-center justify-center border border-white/10 group-hover:bg-[var(--color-primary-gold)] group-hover:text-black transition-all">
-                                                        <ArrowRight className="w-5 h-5" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                <div></div>
             </div>
             
             <style jsx global>{`
