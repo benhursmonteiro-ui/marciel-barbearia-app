@@ -50,13 +50,6 @@ export default function BarberLayout({
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <Link href="/barber/notifications">
-                                <button className="relative p-2.5 text-slate-400 hover:text-white bg-[#121622]/80 hover:bg-[#161c2b] border border-white/5 rounded-xl transition-colors group">
-                                    <Bell size={20} />
-                                    <span className="absolute top-2 right-2 w-2 h-2 bg-amber-400 rounded-full border-2 border-[#080a0f] animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
-                                </button>
-                            </Link>
-
                             <div className="flex items-center gap-3.5 pl-4 border-l border-white/5">
                                 <div className="text-right hidden sm:block">
                                     <p className="text-sm font-bold text-white leading-none">{currentUser?.name || "Barbeiro"}</p>

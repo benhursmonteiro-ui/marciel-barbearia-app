@@ -102,10 +102,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     </div>
 
                     <div className="flex items-center gap-3 md:gap-4">
-                        <button className="relative p-2.5 text-slate-400 hover:text-white bg-[#121622]/80 hover:bg-[#161c2b] border border-white/5 rounded-xl transition-colors group">
-                            <Bell className="w-4 h-4" />
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />
-                        </button>
                         <div className="flex items-center gap-3 pl-3 border-l border-white/5">
                             <div className="hidden md:block text-right">
                                 <p className="text-xs font-bold text-white">{currentUser?.name || "Cliente"}</p>

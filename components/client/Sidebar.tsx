@@ -28,7 +28,6 @@ const navItems = [
     { href: '/client/rate', label: 'Avaliar', icon: Star },
     { href: '/client/promotions', label: 'Promoções', icon: TicketPercent },
     { href: '/client/profile', label: 'Meu Perfil', icon: UserCircle },
-    { href: '/client/notifications', label: 'Notificações', icon: Bell },
 ];
 
 export default function Sidebar() {

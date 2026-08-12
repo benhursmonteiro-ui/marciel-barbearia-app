@@ -41,9 +41,7 @@ export default function AdminLayout({
         { icon: "UserPlus", label: "Clientes", href: "/admin/clientes" },
         { icon: "Wallet", label: "Financeiro", href: "/admin/financeiro" },
         { icon: "Package", label: "Estoque", href: "/admin/estoque" },
-        { icon: "Megaphone", label: "Marketing", href: "/admin/marketing" },
         { icon: "FileText", label: "Relatórios", href: "/admin/relatorios" },
-        { icon: "Bell", label: "Notificações", href: "/admin/notifications" },
         { icon: "Settings", label: "Configurações", href: "/admin/configuracoes" },
     ];
 

@@ -272,12 +272,6 @@ export default function AdminDashboard() {
               href="/admin/relatorios"
             />
             <ActionCard
-              icon={<Ticket className="w-5 h-5" />}
-              label="Marketing"
-              description="Promoções"
-              href="/admin/marketing"
-            />
-            <ActionCard
               icon={<Settings className="w-5 h-5" />}
               label="Configurações"
               description="Ajustes do sistema"
