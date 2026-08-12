@@ -1,19 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import * as LucideIcons from "lucide-react";
+import { SafeIcon as Icon } from "@/components/ui/SafeIcon";
 import { useBarber } from "../../../context/BarberContext";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Calendar } from "../../../components/ui/Calendar";
 import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr } from "@/lib/timeUtils";
-
-// Safe icon renderer
-function Icon({ name, className }: { name: string, className?: string }) {
-    const LucideIcon = (LucideIcons as any)[name];
-    if (!LucideIcon) return <div className={className} style={{ width: '20px', height: '20px', backgroundColor: '#333', borderRadius: '4px' }} />;
-    return <LucideIcon className={className} />;
-}
 
 export default function AdminHorarios() {
     const { shopConfig, updateShopConfig, appointments, barbers, updateBarber, services } = useBarber();

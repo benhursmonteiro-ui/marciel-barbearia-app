@@ -2,18 +2,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import * as LucideIcons from "lucide-react";
-
+import { SafeIcon as Icon } from "@/components/ui/SafeIcon";
 import { useBarber } from "@/context/BarberContext";
-import { useRouter } from "next/navigation";
-
-// Safe icon renderer
-function Icon({ name, className }: { name: string, className?: string }) {
-    const LucideIcon = (LucideIcons as any)[name];
-    if (!LucideIcon) return <div className={className} style={{ width: '20px', height: '20px', backgroundColor: '#333' }} />;
-    return <LucideIcon className={className} />;
-}
+import { useRouter, usePathname } from "next/navigation";
 
 export default function AdminLayout({
     children,

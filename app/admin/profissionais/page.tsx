@@ -1,18 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useMemo } from "react";
-import * as LucideIcons from "lucide-react";
+import { SafeIcon as Icon } from "@/components/ui/SafeIcon";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
 import { useBarber, Barber as ContextBarber } from "@/context/BarberContext";
 import { uploadImage } from "@/lib/supabase";
-
-function Icon({ name, className }: { name: string; className?: string }) {
-    const LucideIcon = (LucideIcons as any)[name];
-    if (!LucideIcon) return <div className={className} style={{ width: 20, height: 20, background: "#333", borderRadius: 4 }} />;
-    return <LucideIcon className={className} />;
-}
 
 const SPECIALTIES = ["Corte Degradê", "Corte Social", "Barba", "Pigmentação", "Relaxamento", "Hidratação", "Pezinho"];
 

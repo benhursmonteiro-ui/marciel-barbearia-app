@@ -235,7 +235,111 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isAuthReady, setIsAuthReady] = useState(false);
 
-    // Function to load all data from Supabase
+    // Cache helper safe against quota limits
+    const safeCache = (key: string, data: any) => {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch (e) {
+            console.warn('[MBS] Cache write warning:', key, e);
+        }
+    };
+
+    // Granular fetch functions to avoid re-fetching all 10 tables on every single change
+    const fetchAppointmentsOnly = async () => {
+        const { data, error } = await supabase
+            .from('agendamentos')
+            .select('*')
+            .order('data', { ascending: false })
+            .limit(1000);
+
+        if (!error && data) {
+            const sortedApps = data.map((a: any) => ({
+                id: String(a.id),
+                clientId: String(a.cliente_id),
+                clientName: a.nome_cliente,
+                barberId: String(a.barbeiro_id),
+                barberName: a.nome_barbeiro,
+                serviceId: String(a.servico_id),
+                serviceName: a.nome_servico,
+                price: a.valor,
+                commission: a.comissao_gerada,
+                date: a.data,
+                time: a.horario,
+                status: a.status,
+                createdAt: a.criado_at || a.created_at
+            })).sort((a: any, b: any) => {
+                const dateCompare = (b.date || "").localeCompare(a.date || "");
+                if (dateCompare !== 0) return dateCompare;
+                return (b.time || "").localeCompare(a.time || "");
+            });
+            setAppointments(sortedApps);
+            safeCache('mbs_cache_appointments', sortedApps);
+        }
+    };
+
+    const fetchNotificationsOnly = async () => {
+        const { data, error } = await supabase
+            .from('notificacoes')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(30);
+
+        if (!error && data) {
+            const formatted = data.map((n: any) => ({
+                id: n.id,
+                userId: n.usuario_id,
+                title: n.titulo,
+                message: n.mensagem,
+                type: n.tipo,
+                read: n.lida,
+                referenceId: n.referencia_id,
+                createdAt: n.created_at
+            }));
+            setNotifications(formatted);
+            safeCache('mbs_cache_notifications', formatted);
+        }
+    };
+
+    const fetchBarbersOnly = async () => {
+        const { data, error } = await supabase.from('barbeiros').select('*');
+        if (!error && data) {
+            const formatted = data.map((b: any) => ({
+                id: String(b.id),
+                userId: String(b.usuario_id),
+                name: b.nome,
+                specialty: b.especialidade,
+                rating: b.rating || b.avaliacao || 5.0,
+                reviews: b.reviews || b.total_avaliacoes || 0,
+                commission: b.comissao,
+                active: b.ativo,
+                workingHours: b.horarios_trabalho,
+                blockedSlots: b.horarios_bloqueados || [],
+                holidays: b.feriados || []
+            }));
+            setBarbers(formatted);
+            safeCache('mbs_cache_barbers', formatted);
+        }
+    };
+
+    const fetchServicesOnly = async () => {
+        const { data, error } = await supabase.from('servicos').select('*');
+        if (!error && data) {
+            const formatted = data.map((s: any) => ({
+                id: String(s.id),
+                name: s.nome,
+                description: s.descricao,
+                duration: s.duracao,
+                price: s.preco,
+                icon: s.icone,
+                popular: s.popular,
+                active: s.ativo !== false
+            }));
+            setServices(formatted);
+            safeCache('mbs_cache_services', formatted);
+        }
+    };
+
+    // Function to load all data from Supabase in background
     const fetchFromSupabase = async () => {
         try {
             const safeFetch = async (query: any, tableName?: string) => {
@@ -244,25 +348,20 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                     console.warn(`[MBS] Fetch warning (${tableName || 'unknown'}):`, error.message);
                     return null;
                 }
-                if (tableName) {
-                    console.log(`[MBS] Fetched ${tableName}: ${data?.length ?? 0} records`);
-                }
                 return data;
             };
 
-            // Função para buscar TODOS os agendamentos sem truncar e com altíssima performance
             const fetchAllAppointments = async () => {
                 const { data, error } = await supabase
                     .from('agendamentos')
                     .select('*')
                     .order('data', { ascending: false })
-                    .limit(3000);
+                    .limit(1000);
 
                 if (error) {
                     console.warn(`[MBS] Fetch warning (agendamentos):`, error.message);
                     return null;
                 }
-                console.log(`[MBS] Fetched agendamentos: ${data?.length ?? 0} records`);
                 return data;
             };
 
@@ -287,46 +386,58 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 safeFetch(supabase.from('configuracoes_loja').select('*'), 'configuracoes_loja'),
                 safeFetch(supabase.from('despesas').select('*'), 'despesas'),
                 safeFetch(supabase.from('entradas_avulsas').select('*'), 'entradas_avulsas'),
-                safeFetch(supabase.from('notificacoes').select('*').order('created_at', { ascending: false }), 'notificacoes')
+                safeFetch(supabase.from('notificacoes').select('*').order('created_at', { ascending: false }).limit(30), 'notificacoes')
             ]);
 
-            if (dbUsers) setUsers(dbUsers.map((u: any) => ({
-                id: String(u.id),
-                name: u.nome,
-                email: u.email,
-                password: u.senha,
-                role: (u.funcao?.toLowerCase() === 'barbeiro' ? 'barber' :
-                    u.funcao?.toLowerCase() === 'cliente' ? 'client' :
-                        u.funcao) as UserRole,
-                blocked: u.bloqueado || false,
-                photo: u.foto_url || "",
-                phone: u.telefone || ""
-            })));
+            if (dbUsers) {
+                const formatted = dbUsers.map((u: any) => ({
+                    id: String(u.id),
+                    name: u.nome,
+                    email: u.email,
+                    password: u.senha,
+                    role: (u.funcao?.toLowerCase() === 'barbeiro' ? 'barber' :
+                        u.funcao?.toLowerCase() === 'cliente' ? 'client' :
+                            u.funcao) as UserRole,
+                    blocked: u.bloqueado || false,
+                    photo: u.foto_url || "",
+                    phone: u.telefone || ""
+                }));
+                setUsers(formatted);
+                safeCache('mbs_cache_users', formatted);
+            }
             
-            if (dbBarbers) setBarbers(dbBarbers.map((b: any) => ({
-                id: String(b.id),
-                userId: String(b.usuario_id),
-                name: b.nome,
-                specialty: b.especialidade,
-                rating: b.rating || b.avaliacao || 5.0,
-                reviews: b.reviews || b.total_avaliacoes || 0,
-                commission: b.comissao,
-                active: b.ativo,
-                workingHours: b.horarios_trabalho,
-                blockedSlots: b.horarios_bloqueados || [],
-                holidays: b.feriados || []
-            })));
+            if (dbBarbers) {
+                const formatted = dbBarbers.map((b: any) => ({
+                    id: String(b.id),
+                    userId: String(b.usuario_id),
+                    name: b.nome,
+                    specialty: b.especialidade,
+                    rating: b.rating || b.avaliacao || 5.0,
+                    reviews: b.reviews || b.total_avaliacoes || 0,
+                    commission: b.comissao,
+                    active: b.ativo,
+                    workingHours: b.horarios_trabalho,
+                    blockedSlots: b.horarios_bloqueados || [],
+                    holidays: b.feriados || []
+                }));
+                setBarbers(formatted);
+                safeCache('mbs_cache_barbers', formatted);
+            }
             
-            if (dbServices) setServices(dbServices.map((s: any) => ({
-                id: String(s.id),
-                name: s.nome,
-                description: s.descricao,
-                duration: s.duracao,
-                price: s.preco,
-                icon: s.icone,
-                popular: s.popular,
-                active: s.ativo !== false
-            })));
+            if (dbServices) {
+                const formatted = dbServices.map((s: any) => ({
+                    id: String(s.id),
+                    name: s.nome,
+                    description: s.descricao,
+                    duration: s.duracao,
+                    price: s.preco,
+                    icon: s.icone,
+                    popular: s.popular,
+                    active: s.ativo !== false
+                }));
+                setServices(formatted);
+                safeCache('mbs_cache_services', formatted);
+            }
             
             if (dbAppointments) {
                 const sortedApps = dbAppointments.map((a: any) => ({
@@ -349,87 +460,110 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                     return (b.time || "").localeCompare(a.time || "");
                 });
                 setAppointments(sortedApps);
+                safeCache('mbs_cache_appointments', sortedApps);
             }
             
-            if (dbPromotions) setPromotions(dbPromotions.map((p: any) => ({
-                id: p.id,
-                tag: p.tag,
-                title: p.titulo,
-                description: p.descricao,
-                price: p.preco,
-                color: p.gradiente_cor,
-                accentBg: p.accent_bg,
-                textColor: p.texto_cor,
-                active: p.ativo
-            })));
+            if (dbPromotions) {
+                const formatted = dbPromotions.map((p: any) => ({
+                    id: p.id,
+                    tag: p.tag,
+                    title: p.titulo,
+                    description: p.descricao,
+                    price: p.preco,
+                    color: p.gradiente_cor,
+                    accentBg: p.accent_bg,
+                    textColor: p.texto_cor,
+                    active: p.ativo
+                }));
+                setPromotions(formatted);
+                safeCache('mbs_cache_promotions', formatted);
+            }
             
-            if (dbProducts) setProducts(dbProducts.map((p: any) => ({
-                id: p.id,
-                name: p.nome,
-                category: p.categoria,
-                price: p.preco,
-                stock: p.quantidade,
-                minStock: p.minimo,
-                image: p.imagem,
-                active: p.ativo !== false
-            })));
+            if (dbProducts) {
+                const formatted = dbProducts.map((p: any) => ({
+                    id: p.id,
+                    name: p.nome,
+                    category: p.categoria,
+                    price: p.preco,
+                    stock: p.quantidade,
+                    minStock: p.minimo,
+                    image: p.imagem,
+                    active: p.ativo !== false
+                }));
+                setProducts(formatted);
+                safeCache('mbs_cache_products', formatted);
+            }
             
             if (dbConfig && Array.isArray(dbConfig) && dbConfig.length > 0) {
                 const cfg = dbConfig[0];
-                setShopConfig(prev => ({
-                    id: cfg.id || prev.id,
-                    name: cfg.nome || prev.name,
-                    logo: cfg.logo || prev.logo,
-                    address: cfg.endereco || prev.address,
-                    phone: cfg.telefone || prev.phone,
-                    whatsapp: cfg.whatsapp || prev.whatsapp,
-                    email: cfg.email || cfg['e-mail'] || prev.email,
-                    workingHours: cfg.horarios_funcionamento || prev.workingHours,
-                    social: cfg.redes_sociais || prev.social,
-                    blockedSlots: cfg.horarios_bloqueados || prev.blockedSlots || [],
-                    holidays: cfg.feriados || prev.holidays || []
-                }));
+                setShopConfig(prev => {
+                    const updated = {
+                        id: cfg.id || prev.id,
+                        name: cfg.nome || prev.name,
+                        logo: cfg.logo || prev.logo,
+                        address: cfg.endereco || prev.address,
+                        phone: cfg.telefone || prev.phone,
+                        whatsapp: cfg.whatsapp || prev.whatsapp,
+                        email: cfg.email || cfg['e-mail'] || prev.email,
+                        workingHours: cfg.horarios_funcionamento || prev.workingHours,
+                        social: cfg.redes_sociais || prev.social,
+                        blockedSlots: cfg.horarios_bloqueados || prev.blockedSlots || [],
+                        holidays: cfg.feriados || prev.holidays || []
+                    };
+                    safeCache('mbs_cache_shopConfig', updated);
+                    return updated;
+                });
             }
             
-            if (dbExpenses) setExpenses(dbExpenses.map((e: any) => ({
-                id: e.id,
-                label: e.label,
-                value: Number(e.value),
-                date: e.date,
-                time: e.time,
-                createdAt: e.created_at
-            })));
+            if (dbExpenses) {
+                const formatted = dbExpenses.map((e: any) => ({
+                    id: e.id,
+                    label: e.label,
+                    value: Number(e.value),
+                    date: e.date,
+                    time: e.time,
+                    createdAt: e.created_at
+                }));
+                setExpenses(formatted);
+            }
             
-            if (dbIncomes) setIncomes(dbIncomes.map((i: any) => ({
-                id: i.id,
-                label: i.label,
-                value: Number(i.value),
-                date: i.date,
-                time: i.time,
-                createdAt: i.created_at
-            })));
+            if (dbIncomes) {
+                const formatted = dbIncomes.map((i: any) => ({
+                    id: i.id,
+                    label: i.label,
+                    value: Number(i.value),
+                    date: i.date,
+                    time: i.time,
+                    createdAt: i.created_at
+                }));
+                setIncomes(formatted);
+            }
             
-            if (dbNotifications) setNotifications(dbNotifications.map((n: any) => ({
-                id: n.id,
-                userId: n.usuario_id,
-                title: n.titulo,
-                message: n.mensagem,
-                type: n.tipo,
-                read: n.lida,
-                referenceId: n.referencia_id,
-                createdAt: n.created_at
-            })));
+            if (dbNotifications) {
+                const formatted = dbNotifications.map((n: any) => ({
+                    id: n.id,
+                    userId: n.usuario_id,
+                    title: n.titulo,
+                    message: n.mensagem,
+                    type: n.tipo,
+                    read: n.lida,
+                    referenceId: n.referencia_id,
+                    createdAt: n.created_at
+                }));
+                setNotifications(formatted);
+                safeCache('mbs_cache_notifications', formatted);
+            }
 
         } catch (error) {
             console.error("Critical error in fetchFromSupabase:", error);
         }
     };
 
-    // Initial Load and Seed
+    // Initial Load and Seed - Instant Hydration from Local Cache
     useEffect(() => {
         const init = async () => {
-            // 1. Restaura a sessão do localStorage instantaneamente para não travar o carregamento inicial
             try {
+                // 1. Restaura usuário atual
                 const savedCurrentUser = localStorage.getItem('mbs_current_user');
                 if (savedCurrentUser) {
                     const parsedUser = JSON.parse(savedCurrentUser);
@@ -437,52 +571,70 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                         setCurrentUser(parsedUser);
                     }
                 }
+
+                // 2. Restaura dados do cache para exibição instantânea sem travar UI
+                const cachedServices = localStorage.getItem('mbs_cache_services');
+                if (cachedServices) setServices(JSON.parse(cachedServices));
+
+                const cachedBarbers = localStorage.getItem('mbs_cache_barbers');
+                if (cachedBarbers) setBarbers(JSON.parse(cachedBarbers));
+
+                const cachedApps = localStorage.getItem('mbs_cache_appointments');
+                if (cachedApps) setAppointments(JSON.parse(cachedApps));
+
+                const cachedConfig = localStorage.getItem('mbs_cache_shopConfig');
+                if (cachedConfig) setShopConfig(JSON.parse(cachedConfig));
+
+                const cachedPromos = localStorage.getItem('mbs_cache_promotions');
+                if (cachedPromos) setPromotions(JSON.parse(cachedPromos));
+
+                const cachedProducts = localStorage.getItem('mbs_cache_products');
+                if (cachedProducts) setProducts(JSON.parse(cachedProducts));
+
+                const cachedNotifs = localStorage.getItem('mbs_cache_notifications');
+                if (cachedNotifs) setNotifications(JSON.parse(cachedNotifs));
+
             } catch (e) {
-                console.error('[MBS] Erro ao restaurar usuário do localStorage:', e);
-                localStorage.removeItem('mbs_current_user');
+                console.error('[MBS] Erro ao restaurar cache local:', e);
             } finally {
                 setIsLoaded(true);
                 setIsAuthReady(true);
             }
 
-            // 2. Carrega dados atualizados do Supabase em segundo plano
-            await fetchFromSupabase();
+            // 3. Sincroniza dados atualizados do Supabase silenciosamente em segundo plano
+            fetchFromSupabase();
         };
 
         init();
     }, []);
 
-    // Realtime Subscriptions
+    // Realtime Subscriptions - Granular Updates
     useEffect(() => {
         const agendamentosChannel = supabase.channel('public:agendamentos')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, (payload) => {
                 console.log('[MBS] Realtime: agendamentos changed', payload.eventType);
-                fetchFromSupabase();
+                fetchAppointmentsOnly();
             })
-            .subscribe((status) => {
-                console.log('[MBS] Realtime agendamentos subscription:', status);
-            });
+            .subscribe();
 
         const notificacoesChannel = supabase.channel('public:notificacoes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacoes' }, (payload) => {
                 console.log('[MBS] Realtime: notificacoes changed', payload.eventType);
-                fetchFromSupabase();
+                fetchNotificationsOnly();
             })
-            .subscribe((status) => {
-                console.log('[MBS] Realtime notificacoes subscription:', status);
-            });
+            .subscribe();
 
         const barbeirosChannel = supabase.channel('public:barbeiros')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'barbeiros' }, (payload) => {
                 console.log('[MBS] Realtime: barbeiros changed', payload.eventType);
-                fetchFromSupabase();
+                fetchBarbersOnly();
             })
             .subscribe();
 
         const servicosChannel = supabase.channel('public:servicos')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'servicos' }, (payload) => {
                 console.log('[MBS] Realtime: servicos changed', payload.eventType);
-                fetchFromSupabase();
+                fetchServicesOnly();
             })
             .subscribe();
 
@@ -494,13 +646,11 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    // Periodic polling every 30 seconds to ensure data stays fresh
-    // This guarantees appointments appear even if realtime fails
+    // Refresh em segundo plano a cada 60s para garantir integridade silenciosa
     useEffect(() => {
         const interval = setInterval(() => {
-            console.log('[MBS] Periodic refresh triggered');
             fetchFromSupabase();
-        }, 30000);
+        }, 60000);
 
         return () => clearInterval(interval);
     }, []);
@@ -521,18 +671,13 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     // as we now rely on Supabase as the source of truth.
 
     const login = async (email: string, password: string) => {
-        // Admin fixo — funciona mesmo se o Supabase ainda não tiver o usuário
-        if (email === 'marciel_farias@admin.com' && password === '150326') {
-            // Tenta buscar o admin no banco (ignorando erros de RLS se houver)
-            const { data: dbAdmin } = await supabase
-                .from('usuarios')
-                .select('*')
-                .eq('email', email)
-                .single();
+        const cleanEmail = email.trim().toLowerCase();
 
+        // Admin fixo — funciona instantaneamente sem travar na rede
+        if (cleanEmail === 'marciel_farias@admin.com' && password === '150326') {
             const adminUser: User = {
-                id: dbAdmin?.id || 'admin-temp-id',
-                name: dbAdmin?.nome || 'Marciel',
+                id: 'admin-temp-id',
+                name: 'Marciel',
                 email: email,
                 password: password,
                 role: 'admin'
@@ -541,15 +686,17 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             setCurrentUser(adminUser);
             localStorage.setItem('mbs_current_user', JSON.stringify(adminUser));
             setAuthCookie(adminUser);
+            fetchFromSupabase(); // Sincronização assíncrona em segundo plano
             return adminUser;
         }
 
-        // Tentativa 1: Login via RPC segura
         let userData: any = null;
+
+        // Tentativa 1: Login via RPC segura
         try {
             const { data, error } = await supabase
                 .rpc('login_user', { 
-                    p_email: email, 
+                    p_email: cleanEmail, 
                     p_password: password 
                 })
                 .single() as { data: any, error: any };
@@ -558,24 +705,50 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 userData = data;
             }
         } catch (e) {
-            console.warn("[MBS] RPC login_user não disponível, tentando busca direta...", e);
+            console.warn("[MBS] RPC login_user não disponível ou falhou:", e);
         }
 
-        // Tentativa 2: Fallback para consulta direta se RPC falhar
+        // Tentativa 2: Consulta direta ao Supabase se RPC falhar
         if (!userData) {
-            const { data: directUser, error: directErr } = await supabase
-                .from('usuarios')
-                .select('*')
-                .eq('email', email)
-                .eq('senha', password)
-                .maybeSingle();
+            try {
+                const { data: directUser, error: directErr } = await supabase
+                    .from('usuarios')
+                    .select('*')
+                    .eq('email', cleanEmail)
+                    .eq('senha', password)
+                    .maybeSingle();
 
-            if (directErr || !directUser) {
-                console.error("Erro no login (RPC e busca direta falharam):", directErr);
-                return null;
+                if (!directErr && directUser) {
+                    userData = directUser;
+                }
+            } catch (e) {
+                console.warn("[MBS] Consulta direta falhou (possível limite de cota do Supabase):", e);
             }
+        }
 
-            userData = directUser;
+        // Tentativa 3: Fallback para o cache local de usuários (mbs_cache_users) se a rede/Supabase falhar ou estiver com cota estourada
+        if (!userData && users && users.length > 0) {
+            const cachedMatch = users.find(
+                u => u.email.toLowerCase() === cleanEmail && u.password === password
+            );
+            if (cachedMatch) {
+                console.log("[MBS] Login autenticado com sucesso via cache local!");
+                userData = {
+                    id: cachedMatch.id,
+                    nome: cachedMatch.name,
+                    email: cachedMatch.email,
+                    senha: cachedMatch.password,
+                    funcao: cachedMatch.role,
+                    bloqueado: cachedMatch.blocked,
+                    foto_url: cachedMatch.photo,
+                    telefone: cachedMatch.phone
+                };
+            }
+        }
+
+        if (!userData) {
+            console.error("[MBS] Falha na autenticação: usuário ou senha incorretos ou sem rede.");
+            return null;
         }
 
         if (userData.bloqueado) {
@@ -603,42 +776,48 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('mbs_current_user', JSON.stringify(user));
         setAuthCookie(user);
         
-        // Sync data for the logged-in user
-        await fetchFromSupabase();
+        // Sincronização em segundo plano sem bloquear a navegação da UI
+        fetchFromSupabase();
         
         return user;
     };
 
     const register = async (name: string, email: string, password: string, role: UserRole, phone?: string) => {
-        const { data, error } = await supabase
-            .from('usuarios')
-            .insert([{ nome: name, email, senha: password, funcao: role, telefone: phone }])
-            .select()
-            .single();
+        let data: any = null;
+        try {
+            const { data: res, error } = await supabase
+                .from('usuarios')
+                .insert([{ nome: name, email: email.trim().toLowerCase(), senha: password, funcao: role, telefone: phone }])
+                .select()
+                .single();
 
-        if (error || !data) {
-            console.error("Erro no cadastro:", error);
-            return null;
+            if (!error && res) {
+                data = res;
+            }
+        } catch (e) {
+            console.warn("[MBS] Erro de rede ao cadastrar no Supabase, criando usuário local...", e);
         }
 
         const newUser: User = { 
-            id: data.id,
-            name: data.nome,
-            email: data.email,
-            password: data.senha,
-            role: (data.funcao?.toLowerCase() === 'barbeiro' ? 'barber' :
-                data.funcao?.toLowerCase() === 'cliente' ? 'client' :
-                    data.funcao) as UserRole,
-            photo: data.foto_url || "",
-            phone: data.telefone || ""
+            id: data?.id || `user-local-${Date.now()}`,
+            name: data?.nome || name,
+            email: data?.email || email.trim().toLowerCase(),
+            password: data?.senha || password,
+            role: role,
+            photo: data?.foto_url || "",
+            phone: data?.telefone || phone || ""
         };
+
         setCurrentUser(newUser);
-        setUsers(prev => [...prev, newUser]);
+        setUsers(prev => {
+            const updated = [...prev, newUser];
+            safeCache('mbs_cache_users', updated);
+            return updated;
+        });
         localStorage.setItem('mbs_current_user', JSON.stringify(newUser));
         setAuthCookie(newUser);
         
-        // Recalcular estado global
-        await fetchFromSupabase();
+        fetchFromSupabase();
         
         return newUser;
     };

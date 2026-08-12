@@ -1,18 +1,11 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import * as LucideIcons from "lucide-react";
+import { SafeIcon as Icon } from "@/components/ui/SafeIcon";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Card } from "../../../components/ui/Card";
 import { useBarber, Service } from "@/context/BarberContext";
-
-// Safe icon renderer
-function Icon({ name, className }: { name: string, className?: string }) {
-    const LucideIcon = (LucideIcons as any)[name];
-    if (!LucideIcon) return <div className={className} style={{ width: '20px', height: '20px', backgroundColor: '#333', borderRadius: '4px' }} />;
-    return <LucideIcon className={className} />;
-}
 
 export default function AdminServicos() {
     const { services, addService, updateService, removeService } = useBarber();
