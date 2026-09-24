@@ -46,21 +46,21 @@ export default function BarberSidebar({ isOpen, onClose }: { isOpen: boolean; on
         router.push('/');
     };
 
-    const [touchStart, setTouchStart] = React.useState<number | null>(null);
+    const touchStartRef = React.useRef<number | null>(null);
 
     const handleTouchStart = (e: React.TouchEvent) => {
-        setTouchStart(e.targetTouches[0].clientX);
+        touchStartRef.current = e.targetTouches[0].clientX;
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (!touchStart) return;
+        if (touchStartRef.current === null) return;
         const currentTouch = e.targetTouches[0].clientX;
-        const diff = touchStart - currentTouch;
+        const diff = touchStartRef.current - currentTouch;
 
         // If swipe left more than 50px, close
         if (diff > 50) {
             onClose();
-            setTouchStart(null);
+            touchStartRef.current = null;
         }
     };
 

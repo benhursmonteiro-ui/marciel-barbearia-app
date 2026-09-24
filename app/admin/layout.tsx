@@ -45,76 +45,21 @@ export default function AdminLayout({
         { icon: "Settings", label: "Configurações", href: "/admin/configuracoes" },
     ];
 
-    const SidebarContent = () => (
-        <>
-            {/* Toggle Button (Desktop Only) */}
-            <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="absolute -right-3 top-20 bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 w-6 h-6 rounded-full hidden md:flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-[60]"
-            >
-                <Icon name={isCollapsed ? "ChevronRight" : "ChevronLeft"} className="w-4 h-4" />
-            </button>
-
-            <div className={`flex items-center gap-3 mb-10 pb-4 border-b border-white/5 overflow-hidden ${isCollapsed ? 'md:justify-center' : ''}`}>
-                <div className="shrink-0 w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
-                    <Icon name="Scissors" className="w-5 h-5 stroke-[2.5]" />
-                </div>
-                {(!isCollapsed || isMobileMenuOpen) && (
-                    <div className="whitespace-nowrap transition-opacity duration-300 group">
-                        <h2 className="font-extrabold tracking-tight text-sm leading-tight text-white">MARCIEL</h2>
-                        <p className="text-amber-400 tracking-widest text-[10px] uppercase font-bold leading-tight mb-1">Barber Admin</p>
-                        <button onClick={handleLogout} className="text-[9px] text-red-400 hover:text-red-300 font-bold uppercase tracking-widest flex items-center gap-1 transition-colors">
-                            <Icon name="LogOut" className="w-2.5 h-2.5" />
-                            Sair
-                        </button>
-                    </div>
-                )}
-                {isCollapsed && !isMobileMenuOpen && (
-                    <button onClick={handleLogout} title="Sair" className="absolute top-[88px] text-red-400 hover:text-red-300 transition-colors hidden md:block">
-                        <Icon name="LogOut" className="w-4 h-4" />
-                    </button>
-                )}
-            </div>
-
-            <ul className="space-y-1.5">
-                {menuItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <li key={item.href}>
-                            <Link
-                                href={item.href}
-                                onClick={() => setIsMobileMenuOpen(false)}
-                                title={isCollapsed ? item.label : ""}
-                                className={`flex items-center gap-3.5 py-3 rounded-xl transition-all duration-300 ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:px-0' : 'px-4'} ${isActive
-                                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.25)]"
-                                    : "text-slate-400 hover:text-white hover:bg-white/[0.04]"
-                                    }`}
-                            >
-                                <Icon name={item.icon} className={`w-5 h-5 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-400'}`} />
-                                {(!isCollapsed || isMobileMenuOpen) && <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>}
-                            </Link>
-                        </li>
-                    );
-                })}
-            </ul>
-        </>
-    );
-
-    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const touchStartRef = React.useRef<number | null>(null);
 
     const handleTouchStart = (e: React.TouchEvent) => {
-        setTouchStart(e.targetTouches[0].clientX);
+        touchStartRef.current = e.targetTouches[0].clientX;
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-        if (!touchStart || !isMobileMenuOpen) return;
+        if (touchStartRef.current === null || !isMobileMenuOpen) return;
         const currentTouch = e.targetTouches[0].clientX;
-        const diff = touchStart - currentTouch;
+        const diff = touchStartRef.current - currentTouch;
 
         // If swipe left more than 50px, close
         if (diff > 50) {
             setIsMobileMenuOpen(false);
-            setTouchStart(null);
+            touchStartRef.current = null;
         }
     };
 
@@ -154,7 +99,56 @@ export default function AdminLayout({
                 ${isMobileMenuOpen ? 'left-0 w-72 p-6' : '-left-full md:left-0'}
                 ${isCollapsed ? 'md:w-20 md:p-4' : 'md:w-64 md:p-6'}
             `}>
-                <SidebarContent />
+                {/* Toggle Button (Desktop Only) */}
+                <button
+                    onClick={() => setIsCollapsed(!isCollapsed)}
+                    className="absolute -right-3 top-20 bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 w-6 h-6 rounded-full hidden md:flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-[60]"
+                >
+                    <Icon name={isCollapsed ? "ChevronRight" : "ChevronLeft"} className="w-4 h-4" />
+                </button>
+
+                <div className={`flex items-center gap-3 mb-10 pb-4 border-b border-white/5 overflow-hidden ${isCollapsed ? 'md:justify-center' : ''}`}>
+                    <div className="shrink-0 w-10 h-10 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                        <Icon name="Scissors" className="w-5 h-5 stroke-[2.5]" />
+                    </div>
+                    {(!isCollapsed || isMobileMenuOpen) && (
+                        <div className="whitespace-nowrap transition-opacity duration-300 group">
+                            <h2 className="font-extrabold tracking-tight text-sm leading-tight text-white">MARCIEL</h2>
+                            <p className="text-amber-400 tracking-widest text-[10px] uppercase font-bold leading-tight mb-1">Barber Admin</p>
+                            <button onClick={handleLogout} className="text-[9px] text-red-400 hover:text-red-300 font-bold uppercase tracking-widest flex items-center gap-1 transition-colors">
+                                <Icon name="LogOut" className="w-2.5 h-2.5" />
+                                Sair
+                            </button>
+                        </div>
+                    )}
+                    {isCollapsed && !isMobileMenuOpen && (
+                        <button onClick={handleLogout} title="Sair" className="absolute top-[88px] text-red-400 hover:text-red-300 transition-colors hidden md:block">
+                            <Icon name="LogOut" className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+
+                <ul className="space-y-1.5">
+                    {menuItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                            <li key={item.href}>
+                                <Link
+                                    href={item.href}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    title={isCollapsed ? item.label : ""}
+                                    className={`flex items-center gap-3.5 py-3 rounded-xl transition-all duration-300 ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:px-0' : 'px-4'} ${isActive
+                                        ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-[0_4px_20px_rgba(245,158,11,0.25)]"
+                                        : "text-slate-400 hover:text-white hover:bg-white/[0.04]"
+                                        }`}
+                                >
+                                    <Icon name={item.icon} className={`w-5 h-5 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-400'}`} />
+                                    {(!isCollapsed || isMobileMenuOpen) && <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>}
+                                </Link>
+                            </li>
+                        );
+                    })}
+                </ul>
             </nav>
 
             {/* Main Content Area */}
