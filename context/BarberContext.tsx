@@ -373,6 +373,26 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 safeCache('mbs_cache_products', loadedProd);
             }
 
+            // Usuários
+            const userRef = collection(db, 'usuarios');
+            const userSnap = await getDocs(userRef);
+            if (!userSnap.empty) {
+                const loadedUsers: User[] = userSnap.docs.map(docSnap => {
+                    const d = docSnap.data();
+                    return {
+                        id: docSnap.id,
+                        name: d.name || '',
+                        email: d.email || '',
+                        password: d.password || '',
+                        role: (d.role || 'client') as UserRole,
+                        phone: d.phone || '',
+                        photo: d.photo || '',
+                        blocked: !!d.blocked
+                    };
+                });
+                setUsers(loadedUsers);
+            }
+
         } catch (error) {
             console.warn('[MBS] Firebase sync notice (using local storage fallback):', error);
         }
@@ -434,23 +454,74 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             return adminUser;
         }
 
-        // Search user in local list or Firebase
+        // 1. Search in loaded users state
         const match = users.find(u => u.email.toLowerCase() === cleanEmail && u.password === password);
         if (match) {
+            if (match.blocked) {
+                throw new Error("Este usuário foi bloqueado. Entre em contato com a barbearia.");
+            }
             setCurrentUser(match);
             localStorage.setItem('mbs_current_user', JSON.stringify(match));
             setAuthCookie(match);
             return match;
         }
 
+        // 2. Query Firestore directly for the user
+        try {
+            const q = query(collection(db, 'usuarios'), where('email', '==', cleanEmail));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                const docSnap = snap.docs[0];
+                const d = docSnap.data();
+                if (d.password === password) {
+                    const authenticatedUser: User = {
+                        id: docSnap.id,
+                        name: d.name || 'Cliente',
+                        email: d.email || cleanEmail,
+                        password: d.password,
+                        role: (d.role || 'client') as UserRole,
+                        phone: d.phone || '',
+                        photo: d.photo || '',
+                        blocked: !!d.blocked
+                    };
+
+                    if (authenticatedUser.blocked) {
+                        throw new Error("Este usuário foi bloqueado. Entre em contato com a barbearia.");
+                    }
+
+                    setCurrentUser(authenticatedUser);
+                    setUsers(prev => [authenticatedUser, ...prev.filter(u => u.id !== authenticatedUser.id)]);
+                    localStorage.setItem('mbs_current_user', JSON.stringify(authenticatedUser));
+                    setAuthCookie(authenticatedUser);
+                    return authenticatedUser;
+                }
+            }
+        } catch (err: any) {
+            if (err?.message?.includes("bloqueado")) throw err;
+            console.warn('[MBS] Firestore login query warning:', err);
+        }
+
         return null;
     };
 
     const register = async (name: string, email: string, password: string, role: UserRole, phone?: string) => {
+        const cleanEmail = email.trim().toLowerCase();
+
+        // Check if user already exists in Firestore
+        try {
+            const checkQ = query(collection(db, 'usuarios'), where('email', '==', cleanEmail));
+            const checkSnap = await getDocs(checkQ);
+            if (!checkSnap.empty) {
+                throw new Error("Este e-mail já está cadastrado. Faça login ou recupere sua senha.");
+            }
+        } catch (e: any) {
+            if (e?.message?.includes("já está cadastrado")) throw e;
+        }
+
         const newUser: User = { 
             id: `user-${Date.now()}`,
             name,
-            email: email.trim().toLowerCase(),
+            email: cleanEmail,
             password,
             role,
             phone: phone || ''
@@ -460,6 +531,7 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             const docRef = await addDoc(collection(db, 'usuarios'), {
                 name: newUser.name,
                 email: newUser.email,
+                password: newUser.password,
                 role: newUser.role,
                 phone: newUser.phone,
                 createdAt: new Date().toISOString()
@@ -674,6 +746,11 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateUser = async (id: string, data: Partial<User>) => {
+        try {
+            await updateDoc(doc(db, 'usuarios', id), data);
+        } catch (e) {
+            console.warn('[MBS] Firebase updateUser notice:', e);
+        }
         setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
     };
 
@@ -756,8 +833,23 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
         setIncomes(prev => [newInc, ...prev]);
     };
 
-    const resetPassword = async (email: string, newPassword: string) => {
-        return { success: true, message: "Senha redefinida com sucesso!" };
+    const resetPassword = async (email: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+        try {
+            const cleanEmail = email.trim().toLowerCase();
+            const q = query(collection(db, 'usuarios'), where('email', '==', cleanEmail));
+            const snap = await getDocs(q);
+            if (snap.empty) {
+                return { success: false, message: "E-mail não encontrado no sistema." };
+            }
+            const userDoc = snap.docs[0];
+            await updateDoc(doc(db, 'usuarios', userDoc.id), {
+                password: newPassword
+            });
+            return { success: true, message: "Senha alterada com sucesso! Faça login com a nova senha." };
+        } catch (err: any) {
+            console.error('Erro ao redefinir senha no Firestore:', err);
+            return { success: false, message: "Erro ao processar solicitação. Tente novamente." };
+        }
     };
 
     const refreshData = async () => {

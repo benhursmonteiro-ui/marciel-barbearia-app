@@ -11,13 +11,9 @@ import {
     ChevronLeft,
     Star,
     ShieldCheck,
-    Info,
-    Phone,
-    UserCheck,
-    MessageSquare
+    Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Calendar } from '@/components/ui/Calendar';
 import { useBarber, Service, Barber, ShopConfig } from '@/context/BarberContext';
 import { useRouter } from 'next/navigation';
@@ -26,14 +22,7 @@ import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr } from '@/lib/t
 export default function SchedulePage() {
     const router = useRouter();
     const { barbers, services, addAppointment, currentUser, appointments, shopConfig } = useBarber();
-    
-    // Step state: 1=Identificação, 2=Serviço, 3=Barbeiro, 4=Data, 5=Horário, 6=Confirmação
     const [step, setStep] = useState(1);
-
-    // Form states
-    const [clientName, setClientName] = useState(currentUser?.name || '');
-    const [clientPhone, setClientPhone] = useState(currentUser?.phone || '');
-
     const [selectedService, setSelectedService] = useState<Service | null>(null);
     const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
     const [selectedDate, setSelectedDate] = useState<string>('');
@@ -63,8 +52,10 @@ export default function SchedulePage() {
             }
         }
 
+        // Check if today is a non-working day (Mon/Sun)
         const isNonWorkingDay = dayName === "Segunda" || dayName === "Domingo";
 
+        // Filter appointments for the selected day and barber (comparação segura por String)
         const relevantAppointments = appointments.filter(apt => 
             apt.date === selectedDate && 
             String(apt.barberId) === String(selectedBarber.id) && 
@@ -74,21 +65,26 @@ export default function SchedulePage() {
         const globalBlocked = (shopConfig.blockedSlots || []).filter(s => s.startsWith(`${dayName}-`)).map(s => s.split('-')[1]);
         const individualBlocked = (selectedBarber.blockedSlots || []).filter(s => s.startsWith(`${dayName}-`)).map(s => s.split('-')[1]);
 
+        // Past times for today
         const now = new Date();
         const todayStr = getTodayLocalDateStr();
         const isToday = selectedDate === todayStr;
         const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
+        // Pass 1: Base availability (existing appointments and rules)
         const baseSlots = generatedSlots.map(t => {
             const slotMin = timeToMinutes(t);
             
+            // 1. Check if occupied by an appointment (including duration)
             const isOccupiedByAppointment = relevantAppointments.some(apt => {
                 const appMin = timeToMinutes(apt.time);
+                // We find the service to get its duration (matching by id or name)
                 const service = services.find(s => String(s.id) === String(apt.serviceId) || s.name === apt.serviceName);
                 const durMin = getDurationMinutes(service?.duration || "30 min");
                 return slotMin >= appMin && slotMin < (appMin + durMin);
             });
 
+            // 2. Business rules
             const isTaken = 
                 (isToday && slotMin <= currentTotalMinutes) || 
                 isNonWorkingDay ||
@@ -103,6 +99,7 @@ export default function SchedulePage() {
             };
         });
 
+        // Pass 2: Consider selected service duration
         const selectedDuration = getDurationMinutes(selectedService.duration || "30 min");
 
         return baseSlots.map(slot => {
@@ -110,8 +107,10 @@ export default function SchedulePage() {
 
             const endTime = slot.minutes + selectedDuration;
 
+            // Rule A: Shop closing (disallow slots starting after shop closing time)
             if (slot.minutes > shopEndMinutes) return { time: slot.time, taken: true };
 
+            // Rule B: Overlap with future appointments/blocks
             const hasConflict = baseSlots.some(otherSlot => 
                otherSlot.minutes > slot.minutes && 
                otherSlot.minutes < endTime && 
@@ -129,29 +128,27 @@ export default function SchedulePage() {
     const prevStep = () => setStep(step - 1);
 
     const isStepValid = () => {
-        if (step === 1) return clientName.trim().length >= 3 && clientPhone.trim().length >= 8;
-        if (step === 2) return !!selectedService;
-        if (step === 3) return !!selectedBarber;
-        if (step === 4) return !!selectedDate;
-        if (step === 5) return !!selectedTime;
+        if (step === 1) return !!selectedService;
+        if (step === 2) return !!selectedBarber;
+        if (step === 3) return !!selectedDate;
+        if (step === 4) return !!selectedTime;
         return true;
     };
 
     const [isSaving, setIsSaving] = useState(false);
 
     const handleConfirm = async () => {
-        if (!clientName || !clientPhone || !selectedBarber || !selectedService) {
-            alert("Por favor, preencha seus dados de contato e selecione todas as opções do agendamento.");
-            setStep(1);
+        if (!currentUser || !selectedBarber || !selectedService) {
+            if (!currentUser) router.push('/');
             return;
         }
 
         setIsSaving(true);
         try {
             await addAppointment({
-                clientId: `cli-${Date.now()}`,
-                clientName: clientName,
-                clientPhone: clientPhone,
+                clientId: currentUser.id,
+                clientName: currentUser.name,
+                clientPhone: currentUser.phone || '',
                 barberId: selectedBarber.id,
                 barberName: selectedBarber.name,
                 serviceId: selectedService.id,
@@ -164,8 +161,8 @@ export default function SchedulePage() {
 
             // Redirecionamento para WhatsApp de Confirmação
             const message = `Olá! Gostaria de confirmar meu agendamento:
-👤 *Cliente:* ${clientName}
-📱 *Telefone:* ${clientPhone}
+👤 *Cliente:* ${currentUser.name}
+📱 *Telefone:* ${currentUser.phone || 'Não informado'}
 📌 *Serviço:* ${selectedService.name}
 💈 *Barbeiro:* ${selectedBarber.name}
 📅 *Data:* ${selectedDate.split('-').reverse().join('/')}
@@ -177,14 +174,15 @@ _Confirmado pelo app Marciel BarberShop_`;
             const waNumber = (shopConfig?.whatsapp || "(89) 9985-0601").replace(/\D/g, '');
             const waLink = `https://wa.me/55${waNumber}?text=${encodeURIComponent(message)}`;
             
+            // Redireciona o cliente para o WhatsApp na mesma janela para evitar bloqueios de pop-up
             window.location.href = waLink;
         } catch (error: any) {
             console.error(error);
             const errStr = error?.message || '';
-            if (errStr.includes('idx_prevent_double_booking') || errStr.includes('duplicate key') || errStr.includes('já foi reservado')) {
-                alert("⚠️ Este horário já foi reservado por outro cliente!\n\nPor favor, selecione outro horário disponível.");
+            if (errStr.includes('idx_prevent_double_booking') || errStr.includes('duplicate key')) {
+                alert("⚠️ Este horário já foi reservado por outro cliente ou seu agendamento já foi processado!\n\nPor favor, selecione outro horário disponível.");
                 setSelectedTime('');
-                setStep(5);
+                setStep(4);
             } else {
                 alert(errStr || "Erro ao confirmar agendamento. Tente novamente.");
             }
@@ -194,28 +192,31 @@ _Confirmado pelo app Marciel BarberShop_`;
     };
 
     const renderStepNumbers = () => (
-        <div className="flex items-center justify-between mb-12 max-w-2xl mx-auto overflow-hidden px-2">
-            {[1, 2, 3, 4, 5, 6].map((num) => (
+        <div className="flex items-center justify-between mb-12 max-w-2xl mx-auto overflow-hidden">
+            {[1, 2, 3, 4, 5].map((num) => (
                 <div key={num} className="flex flex-col items-center relative z-10">
-                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-2 text-xs md:text-sm font-bold transition-all duration-500 ${step >= num
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${step >= num
                         ? 'bg-[var(--color-primary-gold)] border-[var(--color-primary-gold)] text-black shadow-[0_0_15px_rgba(212,175,55,0.4)]'
                         : 'bg-black border-[var(--color-dark-border)] text-gray-600'
                         }`}>
-                        {step > num ? <CheckCircle2 className="w-5 h-5" /> : num}
+                        {step > num ? <CheckCircle2 className="w-6 h-6" /> : num}
                     </div>
-                    <span className="text-[9px] text-gray-500 font-bold uppercase mt-1 hidden md:block">
-                        {num === 1 ? 'Dados' : num === 2 ? 'Serviço' : num === 3 ? 'Barbeiro' : num === 4 ? 'Data' : num === 5 ? 'Horário' : 'Confirmar'}
-                    </span>
                 </div>
             ))}
+            {/* Progress line */}
+            <div className="absolute top-[138px] left-[10%] right-[10%] h-[2px] bg-[var(--color-dark-border)] -z-0 hidden md:block" />
+            <div
+                className="absolute top-[138px] left-[10%] h-[2px] bg-[var(--color-primary-gold)] transition-all duration-700 -z-0 hidden md:block"
+                style={{ width: `${(step - 1) * 20}%` }}
+            />
         </div>
     );
 
     return (
         <div className="max-w-4xl mx-auto min-h-[80vh] flex flex-col">
             <header className="text-center mb-10">
-                <h1 className="text-3xl font-bold tracking-tight mb-2">Agendar <span className="text-[var(--color-primary-gold)]">Horário</span></h1>
-                <p className="text-gray-400 text-sm">Sem necessidade de login! Preencha seus dados e escolha seu horário.</p>
+                <h1 className="text-3xl font-bold tracking-tight mb-2">Agendar <span className="text-[var(--color-primary-gold)]">Horário (V2)</span></h1>
+                <p className="text-gray-500 text-sm italic">Siga os passos abaixo para reservar seu momento premium.</p>
             </header>
 
             {renderStepNumbers()}
@@ -223,39 +224,8 @@ _Confirmado pelo app Marciel BarberShop_`;
             <div className="flex-1 bg-[var(--color-dark-card)] border border-[var(--color-dark-border)] rounded-3xl p-6 md:p-10 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--color-primary-gold)]/20 to-transparent" />
 
-                {/* Step 1: Client Info */}
+                {/* Step 1: Services */}
                 {step === 1 && (
-                    <div className="animate-fade-in-up space-y-6">
-                        <div className="flex items-center gap-3 mb-6">
-                            <UserCheck className="text-[var(--color-primary-gold)] w-6 h-6" />
-                            <div>
-                                <h2 className="text-xl font-bold">Seus Dados de Contato</h2>
-                                <p className="text-xs text-gray-400">Insira seu nome e WhatsApp para confirmar o agendamento</p>
-                            </div>
-                        </div>
-
-                        <div className="max-w-md space-y-5">
-                            <Input
-                                label="Seu Nome Completo"
-                                placeholder="Ex: João da Silva"
-                                value={clientName}
-                                onChange={(e) => setClientName(e.target.value)}
-                                icon={<User className="w-4 h-4" />}
-                            />
-
-                            <Input
-                                label="Seu Telefone / WhatsApp"
-                                placeholder="Ex: (89) 99999-9999"
-                                value={clientPhone}
-                                onChange={(e) => setClientPhone(e.target.value)}
-                                icon={<Phone className="w-4 h-4" />}
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 2: Services */}
-                {step === 2 && (
                     <div className="animate-fade-in-up space-y-6">
                         <div className="flex items-center gap-3 mb-6">
                             <Scissors className="text-[var(--color-primary-gold)] w-6 h-6" />
@@ -267,7 +237,7 @@ _Confirmado pelo app Marciel BarberShop_`;
                                     key={s.id}
                                     onClick={() => {
                                         setSelectedService(s);
-                                        setStep(3);
+                                        setStep(2);
                                     }}
                                     className={`group flex items-center justify-between p-5 rounded-2xl border-2 transition-all duration-300 ${selectedService?.id === s.id
                                         ? 'bg-[var(--color-primary-gold-dim)] border-[var(--color-primary-gold)]'
@@ -293,8 +263,8 @@ _Confirmado pelo app Marciel BarberShop_`;
                     </div>
                 )}
 
-                {/* Step 3: Barbers */}
-                {step === 3 && (
+                {/* Step 2: Barbers */}
+                {step === 2 && (
                     <div className="animate-fade-in-up space-y-6">
                         <div className="flex items-center gap-3 mb-6">
                             <User className="text-[var(--color-primary-gold)] w-6 h-6" />
@@ -306,7 +276,7 @@ _Confirmado pelo app Marciel BarberShop_`;
                                     key={b.id}
                                     onClick={() => {
                                         setSelectedBarber(b);
-                                        setStep(4);
+                                        setStep(3);
                                     }}
                                     className={`group relative overflow-hidden flex flex-col items-center p-6 rounded-3xl border-2 transition-all duration-300 ${selectedBarber?.id === b.id
                                         ? 'bg-[var(--color-primary-gold-dim)] border-[var(--color-primary-gold)] shadow-lg'
@@ -314,8 +284,8 @@ _Confirmado pelo app Marciel BarberShop_`;
                                         }`}
                                 >
                                     <div className="relative mb-4">
-                                        <div className="w-20 h-20 rounded-2xl bg-black border border-white/10 flex items-center justify-center text-[var(--color-primary-gold)] text-4xl overflow-hidden">
-                                            {b.photo ? <img src={b.photo} alt={b.name} className="w-full h-full object-cover" /> : '👤'}
+                                        <div className="w-20 h-20 rounded-2xl bg-black border border-white/10 flex items-center justify-center text-[var(--color-primary-gold)] text-4xl">
+                                            👤
                                         </div>
                                         <div className="absolute -bottom-2 -right-2 bg-black border border-[var(--color-primary-gold)] text-[var(--color-primary-gold)] text-[10px] px-1.5 py-0.5 rounded-lg flex items-center gap-1 font-bold">
                                             <Star className="w-2 h-2 fill-current" /> {b.rating}
@@ -329,8 +299,8 @@ _Confirmado pelo app Marciel BarberShop_`;
                     </div>
                 )}
 
-                {/* Step 4: Date */}
-                {step === 4 && (
+                {/* Step 3: Date */}
+                {step === 3 && (
                     <div className="animate-fade-in-up space-y-6">
                         <div className="flex items-center gap-3 mb-6">
                             <CalendarIcon className="text-[var(--color-primary-gold)] w-6 h-6" />
@@ -342,11 +312,12 @@ _Confirmado pelo app Marciel BarberShop_`;
                                 selectedDate={selectedDate}
                                 onDateSelect={(dateStr) => {
                                     setSelectedDate(dateStr);
-                                    setStep(5);
+                                    setStep(4);
                                 }}
                                 disabledDates={(date) => {
                                     const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
                                     
+                                    // Clone date and set to noon to avoid timezone issues when comparing timestamps
                                     const checkDate = new Date(date);
                                     checkDate.setHours(12, 0, 0, 0);
                                     const timestamp = checkDate.getTime();
@@ -376,8 +347,8 @@ _Confirmado pelo app Marciel BarberShop_`;
                     </div>
                 )}
 
-                {/* Step 5: Time */}
-                {step === 5 && (
+                {/* Step 4: Time */}
+                {step === 4 && (
                     <div className="animate-fade-in-up space-y-6">
                         <div className="flex items-center gap-3 mb-6">
                             <Clock className="text-[var(--color-primary-gold)] w-6 h-6" />
@@ -390,7 +361,7 @@ _Confirmado pelo app Marciel BarberShop_`;
                                     disabled={taken}
                                     onClick={() => {
                                         setSelectedTime(t);
-                                        setStep(6);
+                                        setStep(5);
                                     }}
                                     className={`p-4 rounded-xl border-2 font-bold transition-all ${selectedTime === t
                                         ? 'bg-[var(--color-primary-gold)] border-[var(--color-primary-gold)] text-black shadow-lg'
@@ -407,8 +378,8 @@ _Confirmado pelo app Marciel BarberShop_`;
                     </div>
                 )}
 
-                {/* Step 6: Confirm */}
-                {step === 6 && (
+                {/* Step 5: Confirm */}
+                {step === 5 && (
                     <div className="animate-fade-in-up space-y-8">
                         <div className="flex items-center gap-3 mb-6">
                             <ShieldCheck className="text-[var(--color-primary-gold)] w-6 h-6" />
@@ -416,18 +387,8 @@ _Confirmado pelo app Marciel BarberShop_`;
                         </div>
 
                         <div className="bg-black/60 rounded-3xl border border-[var(--color-dark-border)] p-8 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="flex flex-col md:flex-row justify-between gap-6">
                                 <div className="space-y-4">
-                                    <div className="flex gap-4">
-                                        <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-[var(--color-primary-gold)]">
-                                            <UserCheck className="w-6 h-6" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-gray-500 uppercase font-black">Cliente</p>
-                                            <p className="text-lg font-bold">{clientName}</p>
-                                            <p className="text-xs text-gray-400">{clientPhone}</p>
-                                        </div>
-                                    </div>
                                     <div className="flex gap-4">
                                         <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-[var(--color-primary-gold)]">
                                             <Scissors className="w-6 h-6" />
@@ -437,8 +398,6 @@ _Confirmado pelo app Marciel BarberShop_`;
                                             <p className="text-lg font-bold">{selectedService?.name}</p>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="space-y-4">
                                     <div className="flex gap-4">
                                         <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-[var(--color-primary-gold)]">
                                             <User className="w-6 h-6" />
@@ -448,6 +407,8 @@ _Confirmado pelo app Marciel BarberShop_`;
                                             <p className="text-lg font-bold">{selectedBarber?.name}</p>
                                         </div>
                                     </div>
+                                </div>
+                                <div className="space-y-4">
                                     <div className="flex gap-4">
                                         <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-[var(--color-primary-gold)]">
                                             <CalendarIcon className="w-6 h-6" />
@@ -457,13 +418,15 @@ _Confirmado pelo app Marciel BarberShop_`;
                                             <p className="text-lg font-bold">{selectedDate.split('-').reverse().join('/')} às {selectedTime}</p>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            <div className="border-t border-white/10 pt-4 flex justify-between items-center">
-                                <div>
-                                    <p className="text-[10px] text-gray-500 uppercase font-black">Valor Total</p>
-                                    <p className="text-2xl font-black text-[var(--color-primary-gold)]">R$ {selectedService?.price.toFixed(2)}</p>
+                                    <div className="flex gap-4">
+                                        <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-[var(--color-primary-gold)]">
+                                            <Info className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 uppercase font-black">Valor Total</p>
+                                            <p className="text-2xl font-black text-[var(--color-primary-gold)]">R$ {selectedService?.price.toFixed(2)}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -475,7 +438,7 @@ _Confirmado pelo app Marciel BarberShop_`;
                     {step > 1 ? (
                         <button
                             onClick={prevStep}
-                            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-bold"
+                            className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-sm font-bold"
                         >
                             <ChevronLeft className="w-4 h-4" /> VOLTAR
                         </button>
@@ -483,21 +446,21 @@ _Confirmado pelo app Marciel BarberShop_`;
                         <div />
                     )}
 
-                    {step < 6 ? (
+                    {step < 5 ? (
                         <Button
                             onClick={nextStep}
                             disabled={!isStepValid()}
-                            className="bg-[var(--color-primary-gold)] hover:bg-[var(--color-primary-gold-hover)] text-black px-8 py-3 rounded-xl font-black text-xs tracking-widest gap-2 disabled:opacity-30"
+                            className="bg-[var(--color-primary-gold)] hover:bg-[var(--color-primary-gold-hover)] text-black px-8 py-3 rounded-xl font-black text-xs tracking-widest gap-2"
                         >
                             PRÓXIMO PASSO <ChevronRight className="w-4 h-4" />
                         </Button>
                     ) : (
                         <Button
-                            className="bg-[var(--color-primary-gold)] hover:bg-[var(--color-primary-gold-hover)] text-black px-12 py-4 rounded-2xl font-black text-sm tracking-widest shadow-[0_10px_30px_rgba(212,175,55,0.3)] gap-2"
+                            className="bg-[var(--color-primary-gold)] hover:bg-[var(--color-primary-gold-hover)] text-black px-12 py-4 rounded-2xl font-black text-sm tracking-widest shadow-[0_10px_30px_rgba(212,175,55,0.3)]"
                             onClick={handleConfirm}
                             isLoading={isSaving}
                         >
-                            <MessageSquare className="w-5 h-5" /> CONFIRMAR NO WHATSAPP
+                            CONFIRMAR AGENDAMENTO
                         </Button>
                     )}
                 </div>

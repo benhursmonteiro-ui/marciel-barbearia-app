@@ -1,8 +1,8 @@
 "use client";
 
 import Sidebar from '@/components/client/Sidebar';
-import { useState } from 'react';
-import { Menu, X, User, ShoppingCart, Minus, Plus, MessageSquare, Package, ShieldCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Menu, X, Bell, User, ShoppingCart, Minus, Plus, MessageSquare, Package } from 'lucide-react';
 import { useBarber } from '@/context/BarberContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -10,7 +10,7 @@ import React from 'react';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const { currentUser, cart, updateCartQuantity, removeFromCart, clearCart, shopConfig } = useBarber();
+    const { currentUser, isAuthReady, cart, updateCartQuantity, removeFromCart, clearCart, shopConfig } = useBarber();
     const router = useRouter();
     const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -22,7 +22,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         const finalWa = (waNumber.length >= 12 && waNumber.startsWith('55')) ? waNumber : `55${waNumber}`;
 
         let message = `*📦 NOVO PEDIDO DE PRODUTOS*\n\n`;
-        message += `*Cliente:* ${currentUser?.name || 'Cliente'}\n`;
+        message += `*Cliente:* ${currentUser?.name || 'Não identificado'}\n`;
         if (currentUser?.phone) message += `*WhatsApp:* ${currentUser.phone}\n`;
         message += `\n--------------------------\n`;
         
@@ -41,6 +41,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         setIsCartOpen(false);
     };
 
+    // Protection: Redirect if not logged in - wait for auth to be restored
+    useEffect(() => {
+        if (!isAuthReady) return;
+        if (!currentUser) {
+            router.push('/');
+        }
+    }, [currentUser, router, isAuthReady]);
+
     const [touchStart, setTouchStart] = useState<number | null>(null);
 
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -52,6 +60,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         const currentTouch = e.targetTouches[0].clientX;
         const diff = touchStart - currentTouch;
 
+        // If swipe left more than 50px, close
         if (diff > 50) {
             setSidebarOpen(false);
             setTouchStart(null);
@@ -87,36 +96,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                             <Menu className="w-5 h-5" />
                         </button>
                         <div>
-                            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Marciel BarberShop</p>
-                            <h2 className="text-sm font-bold text-white">Agendamento Online</h2>
+                            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Área do Cliente</p>
+                            <h2 className="text-sm font-bold text-white">Bem-vindo(a), {currentUser?.name?.split(' ')[0] || 'Cliente'}</h2>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3 md:gap-4">
-                        {/* Botão ADM no Menu Superior direciona para a tela clássica de login */}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (currentUser?.role === 'admin') {
-                                    router.push('/admin');
-                                } else if (currentUser?.role === 'barber') {
-                                    router.push('/barber');
-                                } else {
-                                    router.push('/login');
-                                }
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-black font-black text-xs uppercase tracking-widest shadow-lg hover:brightness-110 transition-all hover:scale-105 active:scale-95 border border-amber-400/40"
-                        >
-                            <ShieldCheck className="w-4 h-4" />
-                            <span>ADM</span>
-                        </button>
-
                         <div className="flex items-center gap-3 pl-3 border-l border-white/5">
                             <div className="hidden md:block text-right">
                                 <p className="text-xs font-bold text-white">{currentUser?.name || "Cliente"}</p>
-                                <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">
-                                    {currentUser?.role === 'admin' ? 'Administrador' : currentUser?.role === 'barber' ? 'Barbeiro' : 'Visitante'}
-                                </p>
+                                <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Membro VIP</p>
                             </div>
                             <div className="w-9 h-9 border border-amber-500/30 rounded-xl flex items-center justify-center bg-slate-900 overflow-hidden text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
                                 {currentUser?.photo ? <img src={currentUser.photo} alt="" className="w-full h-full object-cover" /> : <User className="w-5 h-5 text-amber-400" />}
@@ -151,7 +140,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     <div className="relative w-full max-w-md h-full md:h-auto md:max-h-[90vh] bg-[#0d0d0d] border-l md:border border-white/5 md:rounded-[3rem] shadow-2xl flex flex-col animate-slide-left overflow-hidden">
                         <header className="p-8 border-b border-white/5 flex justify-between items-center bg-black/40">
                             <div>
-                                <h2 className="text-2xl font-black italic uppercase">Meu <span className="text-[#D4AF37]">Pedido</span></h2>
+                                <h2 className="text-2xl font-black italic uppercase italic">Meu <span className="text-[#D4AF37]">Pedido</span></h2>
                                 <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">{cartItemsCount} Itens selecionados</p>
                             </div>
                             <button onClick={() => setIsCartOpen(false)} className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all">
@@ -210,6 +199,30 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                     </div>
                 </div>
             )}
+
+            <style jsx global>{`
+                .animate-slide-left {
+                    animation: slideLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+                @keyframes slideLeft {
+                    from { transform: translateX(100%); }
+                    to { transform: translateX(0); }
+                }
+                .animate-bounce-slow {
+                    animation: bounceSlow 3s infinite;
+                }
+                @keyframes bounceSlow {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-10px); }
+                }
+                .animate-fade-in {
+                    animation: fadeIn 0.3s ease-out forwards;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `}</style>
         </div>
     );
 }
