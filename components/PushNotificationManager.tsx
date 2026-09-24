@@ -37,9 +37,9 @@ export default function PushNotificationManager() {
           if (currentUser.role === "admin" || currentUser.id === newApt.barberId) {
             const options: any = {
               body: `${newApt.clientName || 'Cliente'} agendou: ${newApt.serviceName || 'Serviço'} às ${newApt.time} em ${newApt.date}`,
-              icon: "/next.svg",
+              icon: "/icon-192.png",
               vibrate: [200, 100, 200],
-              badge: "/next.svg",
+              badge: "/icon-192.png",
               tag: "new-appointment-" + change.doc.id
             };
 
