@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Bell, BellOff, CheckCircle } from "lucide-react";
 import { useBarber } from "@/context/BarberContext";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, limit, orderBy } from "firebase/firestore";
 
 export default function PushNotificationManager() {
   const [isSupported] = useState<boolean>(() => typeof window !== "undefined" && "serviceWorker" in navigator && "Notification" in window);
@@ -19,41 +20,42 @@ export default function PushNotificationManager() {
     }
   }, [isSupported]);
 
-  // Realtime Notification Logic
+  // Realtime Notification Logic via Firestore
   useEffect(() => {
     if (permission !== "granted" || !currentUser) return;
 
-    // Listen for new rows in agendamentos table
-    const channel = supabase
-      .channel("new_appointments")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "agendamentos" },
-        (payload) => {
-          const newApt = payload.new as any;
-          
-          // Notify the specific barber or the admin
-          if (currentUser.role === 'admin' || currentUser.id === newApt.barbeiro_id) {
+    let isInitial = true;
+    const q = query(collection(db, "agendamentos"), orderBy("createdAt", "desc"), limit(5));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (isInitial) {
+        isInitial = false;
+        return;
+      }
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const newApt = change.doc.data() as any;
+          if (currentUser.role === "admin" || currentUser.id === newApt.barberId) {
             const options: any = {
-              body: `${newApt.nome_cliente} agendou: ${newApt.nome_servico} às ${newApt.horario} em ${newApt.data}`,
+              body: `${newApt.clientName || 'Cliente'} agendou: ${newApt.serviceName || 'Serviço'} às ${newApt.time} em ${newApt.date}`,
               icon: "/next.svg",
               vibrate: [200, 100, 200],
               badge: "/next.svg",
-              tag: "new-appointment-" + newApt.id
+              tag: "new-appointment-" + change.doc.id
             };
-            
+
             new Notification("📆 NOVO AGENDAMENTO!", options);
-            
-            // Play a sound if possible
+
             const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
             audio.play().catch(() => {});
           }
         }
-      )
-      .subscribe();
+      });
+    }, (error) => {
+      console.warn("Firestore notification listener warning:", error);
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [permission, currentUser]);
 

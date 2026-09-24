@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { SafeIcon as Icon } from "@/components/ui/SafeIcon";
-import { supabase, uploadImage } from "@/lib/supabase";
+import { uploadImage } from "@/lib/supabase";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { useBarber, Product } from "@/context/BarberContext";

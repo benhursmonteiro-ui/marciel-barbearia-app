@@ -12,20 +12,17 @@ const supabaseAnonKey = rawKey || 'placeholder-key';
 // Conexão oficial com o banco
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export async function uploadImage(file: File, bucket: string = 'barber-images') {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-    const filePath = `uploads/${fileName}`;
-
-    const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-    if (error) throw error;
-
-    const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-    return publicUrl;
+export async function uploadImage(file: File, _bucket: string = 'barber-images'): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+                resolve(reader.result);
+            } else {
+                reject(new Error("Erro ao processar imagem"));
+            }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 }
