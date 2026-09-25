@@ -52,8 +52,8 @@ export default function SchedulePage() {
             }
         }
 
-        // Check if today is a non-working day (Mon/Sun)
-        const isNonWorkingDay = dayName === "Segunda" || dayName === "Domingo";
+        // Check if today is a non-working day
+        const isNonWorkingDay = dayConfig ? !!dayConfig.closed : (dayName === "Segunda" || dayName === "Domingo");
 
         // Filter appointments for the selected day and barber (comparação segura por String)
         const relevantAppointments = appointments.filter(apt => 
@@ -62,8 +62,23 @@ export default function SchedulePage() {
             ['agendado', 'confirmado', 'em atendimento', 'concluido'].includes(apt.status?.toLowerCase() || '')
         );
 
-        const globalBlocked = (shopConfig.blockedSlots || []).filter(s => s.startsWith(`${dayName}-`)).map(s => s.split('-')[1]);
-        const individualBlocked = (selectedBarber.blockedSlots || []).filter(s => s.startsWith(`${dayName}-`)).map(s => s.split('-')[1]);
+        // Helper para verificar se um horário específico está bloqueado (por dia da semana OU por data)
+        const isSlotBlocked = (timeSlot: string) => {
+            const checkList = (list: string[] = []) => list.some(s => {
+                if (!s) return false;
+                // Formato por dia da semana: "Segunda-08:00"
+                if (s.toLowerCase() === `${dayName.toLowerCase()}-${timeSlot}`) return true;
+                // Formato por data: "2026-09-25-08:00" ou "2026-09-25_08:00"
+                if (s === `${selectedDate}-${timeSlot}` || s === `${selectedDate}_${timeSlot}`) return true;
+                if (s.endsWith(`-${timeSlot}`) || s.endsWith(`_${timeSlot}`)) {
+                    const prefix = s.slice(0, -(timeSlot.length + 1));
+                    if (prefix.toLowerCase() === dayName.toLowerCase() || prefix === selectedDate) return true;
+                }
+                return false;
+            });
+
+            return checkList(shopConfig.blockedSlots) || checkList(selectedBarber.blockedSlots);
+        };
 
         // Past times for today
         const now = new Date();
@@ -89,8 +104,7 @@ export default function SchedulePage() {
                 (isToday && slotMin <= currentTotalMinutes) || 
                 isNonWorkingDay ||
                 isOccupiedByAppointment || 
-                globalBlocked.includes(t) || 
-                individualBlocked.includes(t);
+                isSlotBlocked(t);
 
             return {
                 time: t,
@@ -310,6 +324,7 @@ _Confirmado pelo app Marciel BarberShop_`;
                         <div className="bg-black/40 border border-[var(--color-dark-border)] rounded-[2.5rem] overflow-hidden shadow-2xl relative">
                             <Calendar
                                 selectedDate={selectedDate}
+                                holidays={[...(shopConfig.holidays || []), ...(selectedBarber?.holidays || [])]}
                                 onDateSelect={(dateStr) => {
                                     setSelectedDate(dateStr);
                                     setStep(4);
@@ -317,20 +332,34 @@ _Confirmado pelo app Marciel BarberShop_`;
                                 disabledDates={(date) => {
                                     const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
                                     
-                                    // Clone date and set to noon to avoid timezone issues when comparing timestamps
-                                    const checkDate = new Date(date);
-                                    checkDate.setHours(12, 0, 0, 0);
-                                    const timestamp = checkDate.getTime();
-                                    
-                                    const isShopHoliday = (shopConfig.holidays || []).includes(timestamp);
-                                    const isBarberHoliday = (selectedBarber?.holidays || []).includes(timestamp);
+                                    const y = date.getFullYear();
+                                    const m = date.getMonth();
+                                    const d = date.getDate();
+
+                                    const isMatchHoliday = (list: (number | string)[] = []) => list.some(h => {
+                                        if (typeof h === 'number') {
+                                            const hd = new Date(h);
+                                            return hd.getFullYear() === y && hd.getMonth() === m && hd.getDate() === d;
+                                        }
+                                        if (typeof h === 'string') {
+                                            const dateStr = `${y}-${(m + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+                                            return h === dateStr || h.startsWith(dateStr);
+                                        }
+                                        return false;
+                                    });
+
+                                    const isShopHoliday = isMatchHoliday(shopConfig.holidays);
+                                    const isBarberHoliday = isMatchHoliday(selectedBarber?.holidays);
                                     
                                     const dayNum = date.getDay();
                                     const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
                                     const dayName = dayNames[dayNum];
-                                    const isShopClosed = dayNum === 0 || dayNum === 1 || shopConfig.workingHours?.[dayName]?.closed;
+                                    const barberDayCfg = (selectedBarber as any)?.workingHours?.[dayName];
+                                    const shopDayCfg = shopConfig.workingHours?.[dayName];
+                                    const dayCfg = barberDayCfg || shopDayCfg;
+                                    const isClosed = dayCfg !== undefined ? !!dayCfg.closed : (dayNum === 0 || dayNum === 1);
 
-                                    return isPast || !!isShopClosed || isShopHoliday || isBarberHoliday;
+                                    return isPast || isClosed || isShopHoliday || isBarberHoliday;
                                 }}
                                 className="!bg-transparent !border-none !shadow-none !p-4"
                             />

@@ -50,12 +50,18 @@ export default function BarberHorarios() {
             if (foundSelected) return foundSelected;
         }
 
+        if (currentUser?.role === 'admin' || currentUser?.email === 'marciel_farias@admin.com') {
+            const marciel = barbers.find(b => b.name.toLowerCase().includes('marciel') || b.name === 'Admin' || b.name === 'Administrador');
+            if (marciel) return marciel;
+        }
+
         const found = barbers.find(b => 
             b.userId === currentUser?.id || 
             b.id === currentUser?.id || 
-            b.name.toLowerCase() === currentUser?.name?.toLowerCase()
+            b.name.toLowerCase() === currentUser?.name?.toLowerCase() ||
+            (currentUser?.name && currentUser.name.toLowerCase().includes(b.name.toLowerCase()))
         );
-        return found;
+        return found || barbers[0] || null;
     }, [barbers, currentUser, selectedBarberId]);
 
     useEffect(() => {
@@ -77,16 +83,24 @@ export default function BarberHorarios() {
                 setWorkingHours(shopConfig.workingHours);
             }
         }
-    }, [currentBarber?.id, shopConfig?.id]);
+    }, [currentBarber?.id, currentBarber?.blockedSlots, currentBarber?.holidays, shopConfig?.id]);
 
     const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
     const hours = ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"];
 
     const toggleSlot = (day: string, hour: string) => {
         const slot = `${day}-${hour}`;
-        setBlockedSlots(prev =>
-            prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]
-        );
+        const targetDate = weekDates[day];
+        const dateSlot = targetDate ? `${targetDate}-${hour}` : null;
+
+        setBlockedSlots(prev => {
+            const isCurrentlyBlocked = prev.includes(slot) || (dateSlot && prev.includes(dateSlot));
+            if (isCurrentlyBlocked) {
+                return prev.filter(s => s !== slot && s !== dateSlot);
+            } else {
+                return [...prev, slot];
+            }
+        });
     };
 
     const blockEntireDay = (day: string) => {
@@ -106,10 +120,30 @@ export default function BarberHorarios() {
     };
 
     const toggleHoliday = (dateStr: string) => {
-        const timestamp = new Date(dateStr + 'T12:00:00').getTime();
-        setHolidays(prev =>
-            prev.includes(timestamp) ? prev.filter(t => t !== timestamp) : [...prev, timestamp]
-        );
+        const targetTimestamp = new Date(dateStr + 'T12:00:00').getTime();
+        const [y, m, d] = dateStr.split('-').map(Number);
+
+        setHolidays(prev => {
+            const exists = prev.some(h => {
+                if (typeof h === 'number') {
+                    const hd = new Date(h);
+                    return hd.getFullYear() === y && (hd.getMonth() + 1) === m && hd.getDate() === d;
+                }
+                return h === dateStr;
+            });
+
+            if (exists) {
+                return prev.filter(h => {
+                    if (typeof h === 'number') {
+                        const hd = new Date(h);
+                        return !(hd.getFullYear() === y && (hd.getMonth() + 1) === m && hd.getDate() === d);
+                    }
+                    return h !== dateStr;
+                });
+            } else {
+                return [...prev, targetTimestamp];
+            }
+        });
     };
 
     const toggleDay = (day: string) => {
@@ -302,9 +336,10 @@ export default function BarberHorarios() {
                                             </td>
                                             {days.map(day => {
                                                 const dayCfg = workingHours[day] || (shopConfig?.workingHours as any)?.[day];
-                                                const isClosed = (day === "Segunda" || day === "Domingo" || dayCfg?.closed);
+                                                const isClosed = dayCfg !== undefined ? !!dayCfg.closed : (day === "Segunda" || day === "Domingo");
                                                 const isOutsideHours = (!isClosed && dayCfg) ? (hour < dayCfg.start || hour > dayCfg.end) : false;
-                                                const isBlocked = blockedSlots.includes(`${day}-${hour}`);
+                                                const targetDate = weekDates[day];
+                                                const isBlocked = blockedSlots.includes(`${day}-${hour}`) || (!!targetDate && blockedSlots.includes(`${targetDate}-${hour}`));
                                                 const appointment = getAppointmentForSlot(day, hour);
                                                 
                                                 return (

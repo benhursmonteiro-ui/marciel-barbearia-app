@@ -9,7 +9,7 @@ interface CalendarProps {
     onDateSelect: (date: string) => void;
     className?: string;
     disabledDates?: (date: Date) => boolean;
-    holidays?: number[];
+    holidays?: (number | string)[];
 }
 
 export function Calendar({ selectedDate, onDateSelect, className = "", disabledDates, holidays = [] }: CalendarProps) {
@@ -103,8 +103,18 @@ export function Calendar({ selectedDate, onDateSelect, className = "", disabledD
                         const d = date.getDate().toString().padStart(2, '0');
                         const dateStr = `${y}-${m}-${d}`;
                         
-                        const dateTime = date.getTime();
-                        const isHoliday = holidays.includes(dateTime);
+                        const isHoliday = holidays.some(h => {
+                            if (typeof h === 'number') {
+                                const hDate = new Date(h);
+                                return hDate.getFullYear() === y && 
+                                       (hDate.getMonth() + 1) === (date.getMonth() + 1) && 
+                                       hDate.getDate() === date.getDate();
+                            }
+                            if (typeof h === 'string') {
+                                return h === dateStr || h.startsWith(dateStr);
+                            }
+                            return false;
+                        });
                         const disabled = disabledDates?.(date);
                         const selected = isSelected(date);
                         const today = isToday(date);

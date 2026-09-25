@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { 
     collection, 
     doc, 
+    getDoc,
     getDocs, 
     addDoc, 
     updateDoc, 
@@ -393,6 +394,28 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                 setUsers(loadedUsers);
             }
 
+            // Configurações da Barbearia (Regras gerais, folgas e bloqueios)
+            try {
+                const configDocRef = doc(db, 'configuracoes', 'geral');
+                const configSnap = await getDoc(configDocRef);
+                if (configSnap.exists()) {
+                    const d = configSnap.data();
+                    setShopConfig(prev => {
+                        const updated: ShopConfig = {
+                            ...prev,
+                            ...d,
+                            workingHours: d.workingHours || prev.workingHours,
+                            blockedSlots: Array.isArray(d.blockedSlots) ? d.blockedSlots : (Array.isArray(d.horarios_bloqueados) ? d.horarios_bloqueados : prev.blockedSlots || []),
+                            holidays: Array.isArray(d.holidays) ? d.holidays : (Array.isArray(d.feriados) ? d.feriados : prev.holidays || [])
+                        };
+                        safeCache('mbs_cache_config', updated);
+                        return updated;
+                    });
+                }
+            } catch (e) {
+                console.warn('[MBS] Firebase shopConfig fetch notice:', e);
+            }
+
         } catch (error) {
             console.warn('[MBS] Firebase sync notice (using local storage fallback):', error);
         }
@@ -408,6 +431,13 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
                     if (parsedUser && parsedUser.id) {
                         setCurrentUser(parsedUser);
                     }
+                }
+
+                const cachedConfig = localStorage.getItem('mbs_cache_config');
+                if (cachedConfig) {
+                    try {
+                        setShopConfig(JSON.parse(cachedConfig));
+                    } catch (e) {}
                 }
 
                 const cachedServices = localStorage.getItem('mbs_cache_services');
@@ -726,23 +756,79 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
             id: `barb-${Date.now()}`,
             userId: `user-${Date.now()}`,
             name: data.name,
-            specialty: data.specialty,
-            commission: data.commission,
+            specialty: data.specialty || 'Barbeiro Profissional',
+            commission: data.commission || 50,
             rating: 5.0,
             reviews: 0,
             active: true,
-            blockedSlots: [],
-            holidays: []
+            photo: data.photo || '',
+            workingHours: data.workingHours,
+            blockedSlots: data.blockedSlots || [],
+            holidays: data.holidays || []
         };
-        setBarbers(prev => [...prev, newBarb]);
+
+        try {
+            const docRef = await addDoc(collection(db, 'barbeiros'), {
+                name: newBarb.name,
+                specialty: newBarb.specialty,
+                commission: newBarb.commission,
+                rating: newBarb.rating,
+                reviews: newBarb.reviews,
+                active: newBarb.active,
+                photo: newBarb.photo,
+                workingHours: newBarb.workingHours || null,
+                blockedSlots: newBarb.blockedSlots,
+                holidays: newBarb.holidays,
+                createdAt: new Date().toISOString()
+            });
+            newBarb.id = docRef.id;
+        } catch (e) {
+            console.warn('[MBS] Firebase addBarber notice:', e);
+        }
+
+        setBarbers(prev => {
+            const updated = [...prev, newBarb];
+            safeCache('mbs_cache_barbers', updated);
+            return updated;
+        });
     };
 
     const updateBarber = async (id: string, data: Partial<Barber>) => {
-        setBarbers(prev => prev.map(b => b.id === id ? { ...b, ...data } : b));
+        try {
+            const payload: any = { ...data };
+            if (data.blockedSlots !== undefined) {
+                payload.horarios_bloqueados = data.blockedSlots;
+                payload.blockedSlots = data.blockedSlots;
+            }
+            if (data.holidays !== undefined) {
+                payload.feriados = data.holidays;
+                payload.holidays = data.holidays;
+            }
+            await setDoc(doc(db, 'barbeiros', id), payload, { merge: true });
+        } catch (e) {
+            console.error('[MBS] Firebase updateBarber error:', e);
+            throw e;
+        }
+
+        setBarbers(prev => {
+            const updated = prev.map(b => b.id === id ? { ...b, ...data } : b);
+            safeCache('mbs_cache_barbers', updated);
+            return updated;
+        });
     };
 
     const removeBarber = async (id: string) => {
-        setBarbers(prev => prev.filter(b => b.id !== id));
+        try {
+            await deleteDoc(doc(db, 'barbeiros', id));
+        } catch (e) {
+            console.warn('[MBS] Firebase removeBarber notice:', e);
+        }
+
+        setBarbers(prev => {
+            const updated = prev.filter(b => b.id !== id);
+            safeCache('mbs_cache_barbers', updated);
+            return updated;
+        });
     };
 
     const updateUser = async (id: string, data: Partial<User>) => {
@@ -755,7 +841,27 @@ export function BarberProvider({ children }: { children: React.ReactNode }) {
     };
 
     const updateShopConfig = async (config: Partial<ShopConfig>) => {
-        setShopConfig(prev => ({ ...prev, ...config }));
+        try {
+            const payload: any = { ...config };
+            if (config.blockedSlots !== undefined) {
+                payload.horarios_bloqueados = config.blockedSlots;
+                payload.blockedSlots = config.blockedSlots;
+            }
+            if (config.holidays !== undefined) {
+                payload.feriados = config.holidays;
+                payload.holidays = config.holidays;
+            }
+            await setDoc(doc(db, 'configuracoes', 'geral'), payload, { merge: true });
+        } catch (e) {
+            console.error('[MBS] Firebase updateShopConfig error:', e);
+            throw e;
+        }
+
+        setShopConfig(prev => {
+            const updated = { ...prev, ...config };
+            safeCache('mbs_cache_config', updated);
+            return updated;
+        });
     };
 
     const addPromotion = async (promo: Omit<Promotion, 'id'>) => {

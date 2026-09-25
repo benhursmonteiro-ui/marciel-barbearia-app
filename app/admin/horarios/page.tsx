@@ -16,7 +16,19 @@ export default function AdminHorarios() {
     const [viewMode, setViewMode] = useState<'grid' | 'calendar' | 'rules'>('grid');
     const [isSaving, setIsSaving] = useState(false);
     const [selectedDate, setSelectedDate] = useState(() => getTodayLocalDateStr());
-    const [selectedBarberId, setSelectedBarberId] = useState<string>('all');
+    const [selectedBarberId, setSelectedBarberId] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('mbs_admin_selected_barber') || 'all';
+        }
+        return 'all';
+    });
+
+    const handleBarberSelect = (id: string) => {
+        setSelectedBarberId(id);
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('mbs_admin_selected_barber', id);
+        }
+    };
 
     const days = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
     const hours = ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30"];
@@ -72,13 +84,21 @@ export default function AdminHorarios() {
                 setHolidays(barber.holidays || []);
             }
         }
-    }, [selectedBarberId, !!shopConfig.id, barbers.length]); // Recarrega se mudar o profissional ou se os dados chegarem do servidor
+    }, [selectedBarberId, shopConfig?.blockedSlots, shopConfig?.holidays, barbers]);
 
     const toggleSlot = (day: string, hour: string) => {
         const slot = `${day}-${hour}`;
-        setBlockedSlots(prev =>
-            prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]
-        );
+        const targetDate = weekDates[day];
+        const dateSlot = targetDate ? `${targetDate}-${hour}` : null;
+
+        setBlockedSlots(prev => {
+            const isCurrentlyBlocked = prev.includes(slot) || (dateSlot && prev.includes(dateSlot));
+            if (isCurrentlyBlocked) {
+                return prev.filter(s => s !== slot && s !== dateSlot);
+            } else {
+                return [...prev, slot];
+            }
+        });
     };
 
     const blockEntireDay = (day: string) => {
@@ -98,10 +118,30 @@ export default function AdminHorarios() {
     };
 
     const toggleHoliday = (dateStr: string) => {
-        const timestamp = new Date(dateStr + 'T12:00:00').getTime();
-        setHolidays(prev =>
-            prev.includes(timestamp) ? prev.filter(t => t !== timestamp) : [...prev, timestamp]
-        );
+        const targetTimestamp = new Date(dateStr + 'T12:00:00').getTime();
+        const [y, m, d] = dateStr.split('-').map(Number);
+
+        setHolidays(prev => {
+            const exists = prev.some(h => {
+                if (typeof h === 'number') {
+                    const hd = new Date(h);
+                    return hd.getFullYear() === y && (hd.getMonth() + 1) === m && hd.getDate() === d;
+                }
+                return h === dateStr;
+            });
+
+            if (exists) {
+                return prev.filter(h => {
+                    if (typeof h === 'number') {
+                        const hd = new Date(h);
+                        return !(hd.getFullYear() === y && (hd.getMonth() + 1) === m && hd.getDate() === d);
+                    }
+                    return h !== dateStr;
+                });
+            } else {
+                return [...prev, targetTimestamp];
+            }
+        });
     };
 
     const handleSave = async () => {
@@ -118,10 +158,10 @@ export default function AdminHorarios() {
                     holidays
                 });
             }
-            alert("Configurações salvas com sucesso!");
+            alert("Configurações de horários e folgas salvas com sucesso!");
         } catch (error) {
             console.error("Erro ao salvar:", error);
-            alert("Erro ao salvar configurações.");
+            alert("Erro ao salvar configurações. Tente novamente.");
         } finally {
             setIsSaving(false);
         }
@@ -154,7 +194,7 @@ export default function AdminHorarios() {
                             <label className="text-[8px] font-black uppercase text-gray-600 pl-1">Profissional:</label>
                             <select
                                 value={selectedBarberId}
-                                onChange={(e) => setSelectedBarberId(e.target.value)}
+                                onChange={(e) => handleBarberSelect(e.target.value)}
                                 className="bg-transparent border-none text-[10px] font-bold text-[#D4AF37] outline-none cursor-pointer"
                             >
                                 <option value="all" className="bg-[#111] text-white">Todos</option>
@@ -223,15 +263,16 @@ export default function AdminHorarios() {
                                             {days.map(day => {
                                                 const currentBarber = barbers.find(b => b.id === selectedBarberId);
                                                 const dayConfig = (currentBarber?.workingHours as any)?.[day] || (shopConfig?.workingHours as any)?.[day];
-                                                const isClosed = (day === "Segunda" || day === "Domingo" || dayConfig?.closed);
+                                                const isClosed = dayConfig !== undefined ? !!dayConfig.closed : (day === "Segunda" || day === "Domingo");
                                                 const isOutsideHours = (!isClosed && dayConfig) ? (hour < dayConfig.start || hour > dayConfig.end) : false;
-                                                const isBlocked = blockedSlots.includes(`${day}-${hour}`);
+                                                const targetDate = weekDates[day];
+                                                const isBlocked = blockedSlots.includes(`${day}-${hour}`) || (!!targetDate && blockedSlots.includes(`${targetDate}-${hour}`));
                                                 const appointment = getAppointmentForSlot(day, hour);
 
                                                 return (
                                                     <td key={day} className="p-2 border-r border-[#1f1f1f] last:border-0 group">
                                                         <button
-                                                            disabled={appointment || isClosed || isOutsideHours}
+                                                            disabled={!!appointment || isClosed || isOutsideHours}
                                                             onClick={() => !appointment && !isClosed && !isOutsideHours && toggleSlot(day, hour)}
                                                             className={`w-full py-4 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${appointment 
                                                                 ? 'bg-gray-800 text-gray-400 border border-gray-700 cursor-default' 
