@@ -6,13 +6,23 @@ import { useBarber } from "../../../context/BarberContext";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
 import { Calendar } from "../../../components/ui/Calendar";
-import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr } from "@/lib/timeUtils";
+import { 
+    timeToMinutes, 
+    getDurationMinutes, 
+    getTodayLocalDateStr, 
+    isAnySlotBlocked, 
+    removeSlotFromList, 
+    addSlotToList,
+    getDateTimestamp,
+    isSameDay,
+    formatDateBR
+} from "@/lib/timeUtils";
 
 export default function AdminHorarios() {
     const { shopConfig, updateShopConfig, appointments, barbers, updateBarber, services } = useBarber();
     
     const [blockedSlots, setBlockedSlots] = useState<string[]>([]);
-    const [holidays, setHolidays] = useState<number[]>([]);
+    const [holidays, setHolidays] = useState<(number | string)[]>([]);
     const [viewMode, setViewMode] = useState<'grid' | 'calendar' | 'rules'>('grid');
     const [isSaving, setIsSaving] = useState(false);
     const [selectedDate, setSelectedDate] = useState(() => getTodayLocalDateStr());
@@ -73,71 +83,70 @@ export default function AdminHorarios() {
     // Initial load from context depending on selection
     useEffect(() => {
         if (selectedBarberId === 'all') {
-            if (shopConfig) {
-                setBlockedSlots(shopConfig.blockedSlots || []);
-                setHolidays(shopConfig.holidays || []);
-            }
+            const allBlocked = Array.from(new Set([
+                ...(shopConfig?.blockedSlots || []),
+                ...barbers.flatMap(b => b.blockedSlots || [])
+            ]));
+            setBlockedSlots(allBlocked);
+            setHolidays(shopConfig?.holidays || []);
         } else {
             const barber = barbers.find(b => b.id === selectedBarberId);
             if (barber) {
-                setBlockedSlots(barber.blockedSlots || []);
-                setHolidays(barber.holidays || []);
+                const barberBlocked = Array.from(new Set([
+                    ...(barber.blockedSlots || []),
+                    ...(shopConfig?.blockedSlots || [])
+                ]));
+                setBlockedSlots(barberBlocked);
+                const barberHolidays = Array.from(new Set([
+                    ...(barber.holidays || []),
+                    ...(shopConfig?.holidays || [])
+                ]));
+                setHolidays(barberHolidays);
             }
         }
-    }, [selectedBarberId, shopConfig?.blockedSlots, shopConfig?.holidays, barbers]);
+    }, [selectedBarberId, barbers.length, shopConfig?.id]);
 
     const toggleSlot = (day: string, hour: string) => {
-        const slot = `${day}-${hour}`;
         const targetDate = weekDates[day];
-        const dateSlot = targetDate ? `${targetDate}-${hour}` : null;
+        const currentlyBlocked = isAnySlotBlocked(blockedSlots, day, hour, targetDate);
 
         setBlockedSlots(prev => {
-            const isCurrentlyBlocked = prev.includes(slot) || (dateSlot && prev.includes(dateSlot));
-            if (isCurrentlyBlocked) {
-                return prev.filter(s => s !== slot && s !== dateSlot);
+            if (currentlyBlocked) {
+                return removeSlotFromList(prev, day, hour, targetDate);
             } else {
-                return [...prev, slot];
+                return addSlotToList(prev, day, hour);
             }
         });
     };
 
     const blockEntireDay = (day: string) => {
-        const slotsToBlock = hours.map(h => `${day}-${h}`);
+        const targetDate = weekDates[day];
+        const allHoursBlocked = hours.every(h => isAnySlotBlocked(blockedSlots, day, h, targetDate));
+
         setBlockedSlots(prev => {
-            const isAlreadyFullyBlocked = slotsToBlock.every(s => prev.includes(s));
-            if (isAlreadyFullyBlocked) {
-                return prev.filter(s => !slotsToBlock.includes(s));
-            } else {
-                const newBlocked = [...prev];
-                slotsToBlock.forEach(s => {
-                    if (!newBlocked.includes(s)) newBlocked.push(s);
+            let updated = [...prev];
+            if (allHoursBlocked) {
+                // Desbloqueia todas as horas do dia
+                hours.forEach(h => {
+                    updated = removeSlotFromList(updated, day, h, targetDate);
                 });
-                return newBlocked;
+            } else {
+                // Bloqueia todas as horas do dia
+                hours.forEach(h => {
+                    updated = addSlotToList(updated, day, h);
+                });
             }
+            return updated;
         });
     };
 
     const toggleHoliday = (dateStr: string) => {
-        const targetTimestamp = new Date(dateStr + 'T12:00:00').getTime();
-        const [y, m, d] = dateStr.split('-').map(Number);
+        const targetTimestamp = getDateTimestamp(dateStr);
 
         setHolidays(prev => {
-            const exists = prev.some(h => {
-                if (typeof h === 'number') {
-                    const hd = new Date(h);
-                    return hd.getFullYear() === y && (hd.getMonth() + 1) === m && hd.getDate() === d;
-                }
-                return h === dateStr;
-            });
-
+            const exists = prev.some(h => isSameDay(h, dateStr));
             if (exists) {
-                return prev.filter(h => {
-                    if (typeof h === 'number') {
-                        const hd = new Date(h);
-                        return !(hd.getFullYear() === y && (hd.getMonth() + 1) === m && hd.getDate() === d);
-                    }
-                    return h !== dateStr;
-                });
+                return prev.filter(h => !isSameDay(h, dateStr));
             } else {
                 return [...prev, targetTimestamp];
             }
@@ -152,11 +161,37 @@ export default function AdminHorarios() {
                     blockedSlots,
                     holidays
                 });
+                // Propaga as alterações para todos os barbeiros
+                for (const b of barbers) {
+                    await updateBarber(b.id, {
+                        blockedSlots: [...blockedSlots],
+                        holidays: [...holidays]
+                    });
+                }
             } else {
                 await updateBarber(selectedBarberId, {
                     blockedSlots,
                     holidays
                 });
+                // Sincroniza se algum slot da barbearia foi liberado
+                if (shopConfig?.blockedSlots && shopConfig.blockedSlots.length > 0) {
+                    const updatedShopSlots = shopConfig.blockedSlots.filter(s => {
+                        const [sDay, sHour] = s.split(/[-_]/);
+                        return isAnySlotBlocked(blockedSlots, sDay, sHour);
+                    });
+                    if (updatedShopSlots.length !== shopConfig.blockedSlots.length) {
+                        await updateShopConfig({ blockedSlots: updatedShopSlots });
+                    }
+                }
+                // Sincroniza se algum feriado foi desmarcado
+                if (shopConfig?.holidays && shopConfig.holidays.length > 0) {
+                    const updatedShopHolidays = shopConfig.holidays.filter(sh => 
+                        holidays.some(h => isSameDay(h, sh))
+                    );
+                    if (updatedShopHolidays.length !== shopConfig.holidays.length) {
+                        await updateShopConfig({ holidays: updatedShopHolidays });
+                    }
+                }
             }
             alert("Configurações de horários e folgas salvas com sucesso!");
         } catch (error) {
@@ -224,6 +259,12 @@ export default function AdminHorarios() {
                         >
                             Calendário
                         </button>
+                        <button
+                            onClick={() => setViewMode('rules')}
+                            className={`px-6 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${viewMode === 'rules' ? 'bg-[#D4AF37] text-black shadow-lg' : 'text-gray-500 hover:text-white'}`}
+                        >
+                            Regras
+                        </button>
                     </div>
                 </div>
             </header>
@@ -245,7 +286,8 @@ export default function AdminHorarios() {
                                                     )}
                                                     <button
                                                         onClick={() => blockEntireDay(day)}
-                                                        className="text-[8px] uppercase font-black px-2 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded hover:bg-red-500 hover:text-white transition-all"
+                                                        className="text-[8px] uppercase font-black px-2 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                                                        title="Alternar todos os horários deste dia"
                                                     >
                                                         Alternar Dia
                                                     </button>
@@ -266,36 +308,45 @@ export default function AdminHorarios() {
                                                 const isClosed = dayConfig !== undefined ? !!dayConfig.closed : (day === "Segunda" || day === "Domingo");
                                                 const isOutsideHours = (!isClosed && dayConfig) ? (hour < dayConfig.start || hour > dayConfig.end) : false;
                                                 const targetDate = weekDates[day];
-                                                const isBlocked = blockedSlots.includes(`${day}-${hour}`) || (!!targetDate && blockedSlots.includes(`${targetDate}-${hour}`));
+                                                const isBlocked = isAnySlotBlocked(blockedSlots, day, hour, targetDate);
                                                 const appointment = getAppointmentForSlot(day, hour);
 
                                                 return (
                                                     <td key={day} className="p-2 border-r border-[#1f1f1f] last:border-0 group">
                                                         <button
-                                                            disabled={!!appointment || isClosed || isOutsideHours}
-                                                            onClick={() => !appointment && !isClosed && !isOutsideHours && toggleSlot(day, hour)}
-                                                            className={`w-full py-4 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 ${appointment 
+                                                            disabled={!!appointment}
+                                                            onClick={() => !appointment && toggleSlot(day, hour)}
+                                                            className={`w-full py-4 rounded-xl text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${appointment 
                                                                 ? 'bg-gray-800 text-gray-400 border border-gray-700 cursor-default' 
-                                                                : isClosed
-                                                                    ? 'bg-red-500/20 text-red-500 border border-red-500/30 opacity-60 cursor-not-allowed'
-                                                                    : isOutsideHours
-                                                                        ? 'bg-white/5 text-gray-700 border border-transparent opacity-20 cursor-default'
-                                                                        : isBlocked
-                                                                            ? 'bg-red-500/10 text-red-500 border border-transparent hover:bg-red-500/20'
+                                                                : isBlocked
+                                                                    ? 'bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25'
+                                                                    : isClosed
+                                                                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20'
+                                                                        : isOutsideHours
+                                                                            ? 'bg-blue-500/10 text-blue-300 border border-blue-500/20 hover:bg-blue-500/20'
                                                                             : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black'
                                                                 }`}
+                                                            title={
+                                                                appointment ? `Agendado: ${appointment.clientName}` :
+                                                                isBlocked ? "Horário Bloqueado (Clique para Desbloquear)" :
+                                                                isClosed ? "Dia Fechado (Clique para Bloquear/Liberar)" :
+                                                                isOutsideHours ? "Horário Fora do Turno Padrão (Clique para Bloquear/Liberar)" :
+                                                                "Horário Livre (Clique para Bloquear)"
+                                                            }
                                                         >
                                                             {appointment ? (
                                                                 <div className="flex flex-col items-center">
                                                                     <Icon name="User" className="w-3 h-3 text-white/40 mb-1" />
                                                                     <span className="text-[9px] leading-tight text-white/90">{appointment.clientName}</span>
                                                                 </div>
-                                                            ) : (isClosed || isOutsideHours) ? (
-                                                                <><Icon name="XCircle" className="w-3 h-3" /> Fechado</>
                                                             ) : isBlocked ? (
-                                                                <><Icon name="XCircle" className="w-3 h-3" /> Bloqueado</>
+                                                                <><Icon name="XCircle" className="w-3 h-3 text-red-400" /> Bloqueado</>
+                                                            ) : isClosed ? (
+                                                                <><Icon name="Clock" className="w-3 h-3 text-amber-400" /> Fechado</>
+                                                            ) : isOutsideHours ? (
+                                                                <><Icon name="CheckCircle" className="w-3 h-3 text-blue-400" /> Extra</>
                                                             ) : (
-                                                                <><Icon name="CheckCircle" className="w-3 h-3" /> Livre</>
+                                                                <><Icon name="CheckCircle" className="w-3 h-3 text-emerald-500" /> Livre</>
                                                             )}
                                                         </button>
                                                     </td>
@@ -337,15 +388,17 @@ export default function AdminHorarios() {
                             <div className="bg-black/40 border border-[#1f1f1f] rounded-3xl p-8 space-y-6">
                                 <h3 className="text-sm font-black uppercase tracking-widest text-[#D4AF37]">Dias Bloqueados</h3>
                                 <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {holidays.length > 0 ? [...holidays].sort((a, b) => a - b).map((timestamp: number) => (
-                                        <div key={timestamp} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group">
+                                    {holidays.length > 0 ? [...holidays].sort((a, b) => getDateTimestamp(a) - getDateTimestamp(b)).map((item, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group">
                                             <div className="flex items-center gap-3">
                                                 <Icon name="CalendarOff" className="w-4 h-4 text-red-500" />
-                                                <span className="text-xs font-bold">{new Date(timestamp).toLocaleDateString('pt-BR')}</span>
+                                                <span className="text-xs font-bold">{formatDateBR(item)}</span>
                                             </div>
                                             <button
-                                                onClick={() => setHolidays(prev => prev.filter(t => t !== timestamp))}
-                                                className="text-gray-600 hover:text-red-500 transition-colors"
+                                                type="button"
+                                                onClick={() => setHolidays(prev => prev.filter(h => !isSameDay(h, item)))}
+                                                className="text-gray-600 hover:text-red-500 transition-colors cursor-pointer"
+                                                title="Desbloquear este dia"
                                             >
                                                 <Icon name="Trash2" className="w-4 h-4" />
                                             </button>

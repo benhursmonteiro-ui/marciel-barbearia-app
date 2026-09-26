@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Calendar } from '@/components/ui/Calendar';
 import { useBarber, Service, Barber, ShopConfig } from '@/context/BarberContext';
 import { useRouter } from 'next/navigation';
-import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr } from '@/lib/timeUtils';
+import { timeToMinutes, getDurationMinutes, getTodayLocalDateStr, isAnySlotBlocked, isSameDay } from '@/lib/timeUtils';
 
 export default function SchedulePage() {
     const router = useRouter();
@@ -55,6 +55,13 @@ export default function SchedulePage() {
         // Check if today is a non-working day
         const isNonWorkingDay = dayConfig ? !!dayConfig.closed : (dayName === "Segunda" || dayName === "Domingo");
 
+        // Check if selected date is marked as a holiday/folga
+        const isHoliday = 
+            (shopConfig.holidays || []).some(h => isSameDay(h, selectedDate)) ||
+            (selectedBarber.holidays || []).some(h => isSameDay(h, selectedDate));
+
+        if (isNonWorkingDay || isHoliday) return [];
+
         // Filter appointments for the selected day and barber (comparação segura por String)
         const relevantAppointments = appointments.filter(apt => 
             apt.date === selectedDate && 
@@ -64,20 +71,8 @@ export default function SchedulePage() {
 
         // Helper para verificar se um horário específico está bloqueado (por dia da semana OU por data)
         const isSlotBlocked = (timeSlot: string) => {
-            const checkList = (list: string[] = []) => list.some(s => {
-                if (!s) return false;
-                // Formato por dia da semana: "Segunda-08:00"
-                if (s.toLowerCase() === `${dayName.toLowerCase()}-${timeSlot}`) return true;
-                // Formato por data: "2026-09-25-08:00" ou "2026-09-25_08:00"
-                if (s === `${selectedDate}-${timeSlot}` || s === `${selectedDate}_${timeSlot}`) return true;
-                if (s.endsWith(`-${timeSlot}`) || s.endsWith(`_${timeSlot}`)) {
-                    const prefix = s.slice(0, -(timeSlot.length + 1));
-                    if (prefix.toLowerCase() === dayName.toLowerCase() || prefix === selectedDate) return true;
-                }
-                return false;
-            });
-
-            return checkList(shopConfig.blockedSlots) || checkList(selectedBarber.blockedSlots);
+            return isAnySlotBlocked(shopConfig.blockedSlots, dayName, timeSlot, selectedDate) ||
+                   isAnySlotBlocked(selectedBarber.blockedSlots, dayName, timeSlot, selectedDate);
         };
 
         // Past times for today

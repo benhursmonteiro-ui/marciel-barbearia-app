@@ -45,7 +45,7 @@ export interface Barber {
     active: boolean;
     workingHours?: any;
     blockedSlots: string[];
-    holidays: number[];
+    holidays: (number | string)[];
 }
 
 export interface Service {
@@ -75,7 +75,7 @@ export interface ShopConfig {
         facebook: string;
     };
     blockedSlots: string[];
-    holidays: number[];
+    holidays: (number | string)[];
 }
 
 export type AppointmentStatus = 'agendado' | 'confirmado' | 'em atendimento' | 'concluido' | 'cancelado';
